@@ -1,0 +1,194 @@
+/* ============================================================
+   Opening Hours Widget — Snippet Styles
+   ============================================================ */
+
+.s_opening_hours {
+    .s_opening_hours_widget {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    /* ---------- Inline status bar ---------- */
+    .s_oh_status_bar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.6rem 1rem;
+        cursor: default;
+        flex-wrap: wrap;
+    }
+
+    /* ---------- Status indicator ---------- */
+    .s_oh_indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .s_oh_dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #adb5bd;
+        flex-shrink: 0;
+        transition: background 0.3s ease;
+
+        &--open {
+            background: #2ecc71;
+            box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+            animation: oh-pulse 2s infinite;
+        }
+
+        &--closed {
+            background: #e74c3c;
+            box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
+        }
+    }
+
+    .s_oh_status_text {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .s_oh_today_hours {
+        color: #6c757d;
+        font-size: 0.9rem;
+        white-space: nowrap;
+
+        &--expected {
+            color: #e67e22;
+            font-weight: 600;
+        }
+    }
+
+    /* ---------- Messages ---------- */
+    .s_oh_message {
+        font-size: 0.82rem;
+        font-weight: 500;
+        border-radius: 0.4rem;
+        white-space: nowrap;
+
+        &:empty {
+            display: none;
+        }
+
+        &--warning {
+            color: #856404;
+            background: #fff3cd;
+            padding: 0.25rem 0.6rem;
+            border: 1px solid #ffc107;
+        }
+
+        &--info {
+            color: #0c5460;
+            background: #d1ecf1;
+            padding: 0.25rem 0.6rem;
+            border: 1px solid #17a2b8;
+        }
+    }
+
+    /* ---------- Tooltip / Schedule ---------- */
+    .s_oh_schedule_tooltip {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1050;
+        min-width: 340px;
+        background: #fff;
+        border-radius: 0.75rem;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+        padding: 1rem 1.25rem;
+        margin-top: 0.25rem;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+        transform: translateY(4px);
+        pointer-events: none;
+    }
+
+    .s_oh_status_bar:hover + .s_oh_schedule_tooltip,
+    .s_oh_schedule_tooltip:hover,
+    .s_oh_schedule_tooltip.s_oh_tooltip_open {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+        pointer-events: auto;
+    }
+
+    .s_oh_schedule_header {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .s_oh_schedule_row {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0 0.75rem;
+        padding: 0.3rem 0;
+        font-size: 0.88rem;
+
+        &--today {
+            font-weight: 700;
+            background: #f8f9fa;
+            border-radius: 0.3rem;
+            padding: 0.3rem 0.5rem;
+            margin: 0 -0.5rem;
+        }
+    }
+
+    .s_oh_schedule_day {
+        min-width: 5.5rem;
+    }
+
+    .s_oh_schedule_hours {
+        font-variant-numeric: tabular-nums;
+        min-width: 7rem;
+
+        &--open {
+            color: #2ecc71;
+            font-weight: 600;
+        }
+
+        &--closed {
+            color: #e74c3c;
+            font-weight: 500;
+        }
+
+        &--unexpected {
+            color: #e67e22;
+            font-weight: 600;
+        }
+    }
+
+    .s_oh_schedule_reason {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-style: italic;
+    }
+}
+
+/* ---------- Responsive: stack on small screens ---------- */
+@media (max-width: 576px) {
+    .s_opening_hours .s_oh_status_bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+}
+
+/* ---------- Pulse animation ---------- */
+@keyframes oh-pulse {
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 16px rgba(46, 204, 113, 0.8);
+    }
+}

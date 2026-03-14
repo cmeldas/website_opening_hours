@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Register snippet in the website builder panel -->
+    <template id="snippets" inherit_id="website.snippets" name="Opening Hours Snippets">
+        <xpath expr="//t[@t-snippet='website.s_parallax']" position="after">
+            <t t-snippet="website_opening_hours.s_opening_hours" group="content"/>
+        </xpath>
+    </template>
+</odoo>

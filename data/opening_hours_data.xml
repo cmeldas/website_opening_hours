@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Default opening hours for each day of the week -->
+        <record id="opening_hours_monday" model="opening.hours">
+            <field name="day_of_week">0</field>
+            <field name="is_open">False</field>
+            <field name="open_time">14.0</field>
+            <field name="close_time">18.0</field>
+        </record>
+        <record id="opening_hours_tuesday" model="opening.hours">
+            <field name="day_of_week">1</field>
+            <field name="is_open">False</field>
+            <field name="open_time">14.0</field>
+            <field name="close_time">18.0</field>
+        </record>
+        <record id="opening_hours_wednesday" model="opening.hours">
+            <field name="day_of_week">2</field>
+            <field name="is_open">True</field>
+            <field name="open_time">14.0</field>
+            <field name="close_time">18.0</field>
+        </record>
+        <record id="opening_hours_thursday" model="opening.hours">
+            <field name="day_of_week">3</field>
+            <field name="is_open">True</field>
+            <field name="open_time">14.0</field>
+            <field name="close_time">18.0</field>
+        </record>
+        <record id="opening_hours_friday" model="opening.hours">
+            <field name="day_of_week">4</field>
+            <field name="is_open">True</field>
+            <field name="open_time">14.0</field>
+            <field name="close_time">18.0</field>
+        </record>
+        <record id="opening_hours_saturday" model="opening.hours">
+            <field name="day_of_week">5</field>
+            <field name="is_open">True</field>
+            <field name="open_time">10.0</field>
+            <field name="close_time">16.0</field>
+        </record>
+        <record id="opening_hours_sunday" model="opening.hours">
+            <field name="day_of_week">6</field>
+            <field name="is_open">True</field>
+            <field name="open_time">10.0</field>
+            <field name="close_time">14.0</field>
+        </record>
+
+        <!-- Default HA status singleton -->
+        <record id="opening_hours_status_default" model="opening.hours.status">
+            <field name="ha_is_open">False</field>
+        </record>
+    </data>
+</odoo>

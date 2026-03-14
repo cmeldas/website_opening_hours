@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_opening_hours_admin,opening.hours.admin,model_opening_hours,base.group_system,1,1,1,1
+access_opening_hours_override_admin,opening.hours.override.admin,model_opening_hours_override,base.group_system,1,1,1,1
+access_opening_hours_status_admin,opening.hours.status.admin,model_opening_hours_status,base.group_system,1,1,1,1
+access_opening_hours_public,opening.hours.public,model_opening_hours,base.group_public,1,0,0,0
+access_opening_hours_override_public,opening.hours.override.public,model_opening_hours_override,base.group_public,1,0,0,0
+access_opening_hours_status_public,opening.hours.status.public,model_opening_hours_status,base.group_public,1,0,0,0

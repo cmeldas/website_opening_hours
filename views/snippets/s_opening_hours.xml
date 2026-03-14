@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="s_opening_hours" name="Opening Hours Widget">
+        <section class="s_opening_hours" data-name="Opening Hours">
+            <div class="container">
+            <div class="s_opening_hours_widget ps-4">
+                <!-- Inline status bar -->
+                <div class="s_oh_status_bar">
+                    <div class="s_oh_indicator">
+                        <span class="s_oh_dot"></span>
+                        <span class="s_oh_status_text">Načítání...</span>
+                    </div>
+                    <div class="s_oh_today_hours"></div>
+                    <div class="s_oh_message"></div>
+                </div>
+
+                <!-- Tooltip with 7-day schedule (shown on hover) -->
+                <div class="s_oh_schedule_tooltip">
+                    <div class="s_oh_schedule_header">Otevírací doba — příštích 7 dní</div>
+                    <div class="s_oh_schedule_list">
+                        <div class="text-center text-muted py-2">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Načítání...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </section>
+    </template>
+</odoo>

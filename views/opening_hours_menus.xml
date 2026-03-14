@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="menu_opening_hours_root"
+        name="Otevírací doba"
+        web_icon="website_opening_hours,static/description/icon.png"
+        sequence="100"
+    />
+
+    <menuitem
+        id="menu_opening_hours_schedule"
+        name="Týdenní rozvrh"
+        parent="menu_opening_hours_root"
+        action="action_opening_hours"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_opening_hours_override"
+        name="Výjimky (svátky)"
+        parent="menu_opening_hours_root"
+        action="action_opening_hours_override"
+        sequence="20"
+    />
+
+    <menuitem
+        id="menu_opening_hours_status"
+        name="Stav HA"
+        parent="menu_opening_hours_root"
+        action="action_opening_hours_status"
+        sequence="30"
+    />
+</odoo>
