@@ -1,12 +1,77 @@
+/** @odoo-module **/
 /**
  * Opening Hours Website Snippet
  * Polls /opening-hours/status every 60 seconds.
  * Shows tooltip with 7-day schedule on hover.
  */
-(function () {
-    var POLL_INTERVAL = 60000; // 1 minute
+import publicWidget from "@web/legacy/js/public/public_widget";
 
-    function updateStatus(widget, data) {
+var POLL_INTERVAL = 60000; // 1 minute
+
+publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
+    selector: ".s_opening_hours",
+
+    start() {
+        this._super(...arguments);
+        this.widget = this.el.querySelector(".s_opening_hours_widget");
+        if (!this.widget) return;
+
+        this._fetchStatus();
+        this._fetchSchedule();
+
+        this._pollInterval = setInterval(() => this._fetchStatus(), POLL_INTERVAL);
+
+        var bar = this.widget.querySelector(".s_oh_status_bar");
+        var tooltip = this.widget.querySelector(".s_oh_schedule_tooltip");
+
+        if (bar) {
+            bar.addEventListener("mouseenter", () => this._fetchSchedule());
+            bar.addEventListener("click", (e) => {
+                if (tooltip) {
+                    e.stopPropagation();
+                    var isOpen = tooltip.classList.toggle("s_oh_tooltip_open");
+                    if (isOpen) this._fetchSchedule();
+                }
+            });
+        }
+        if (tooltip) {
+            tooltip.addEventListener("click", (e) => e.stopPropagation());
+        }
+        document.addEventListener("click", () => {
+            if (tooltip) tooltip.classList.remove("s_oh_tooltip_open");
+        });
+    },
+
+    destroy() {
+        if (this._pollInterval) clearInterval(this._pollInterval);
+        this._super(...arguments);
+    },
+
+    _fetchStatus() {
+        var widget = this.widget;
+        fetch("/opening-hours/status")
+            .then((r) => r.json())
+            .then((data) => this._updateStatus(widget, data))
+            .catch(() => {
+                var statusText = widget.querySelector(".s_oh_status_text");
+                if (statusText) statusText.textContent = "Nedostupné";
+            });
+    },
+
+    _fetchSchedule() {
+        var widget = this.widget;
+        fetch("/opening-hours/schedule")
+            .then((r) => r.json())
+            .then((data) => this._renderSchedule(widget, data))
+            .catch(() => {
+                var list = widget.querySelector(".s_oh_schedule_list");
+                if (list)
+                    list.innerHTML =
+                        '<div class="text-center text-muted py-2">Nepodařilo se načíst</div>';
+            });
+    },
+
+    _updateStatus(widget, data) {
         var dot = widget.querySelector(".s_oh_dot");
         var statusText = widget.querySelector(".s_oh_status_text");
         var todayHours = widget.querySelector(".s_oh_today_hours");
@@ -53,14 +118,11 @@
         if (today.reason) {
             todayHours.textContent += " (" + today.reason + ")";
         }
-    }
+    },
 
-    function renderSchedule(widget, schedule) {
+    _renderSchedule(widget, schedule) {
         var list = widget.querySelector(".s_oh_schedule_list");
         list.innerHTML = "";
-
-        var today = new Date();
-        today.setHours(0, 0, 0, 0);
 
         schedule.forEach(function (day, index) {
             var row = document.createElement("div");
@@ -78,7 +140,6 @@
             hoursEl.className = "s_oh_schedule_hours";
 
             if (day.display_status === "closed_unexpected") {
-                // Scheduled open but HA says closed — show planned hours in orange
                 hoursEl.textContent = day.open_time + " – " + day.close_time;
                 hoursEl.classList.add("s_oh_schedule_hours--unexpected");
             } else if (day.is_open) {
@@ -99,76 +160,5 @@
 
             list.appendChild(row);
         });
-    }
-
-    function fetchStatus(widget) {
-        fetch("/opening-hours/status")
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                updateStatus(widget, data);
-            })
-            .catch(function () {
-                var statusText = widget.querySelector(".s_oh_status_text");
-                if (statusText) statusText.textContent = "Nedostupné";
-            });
-    }
-
-    function fetchSchedule(widget) {
-        fetch("/opening-hours/schedule")
-            .then(function (r) { return r.json(); })
-            .then(function (data) { renderSchedule(widget, data); })
-            .catch(function () {
-                var list = widget.querySelector(".s_oh_schedule_list");
-                if (list) list.innerHTML = '<div class="text-center text-muted py-2">Nepodařilo se načíst</div>';
-            });
-    }
-
-    function initWidgets() {
-        var widgets = document.querySelectorAll(".s_opening_hours");
-        widgets.forEach(function (section) {
-            var widget = section.querySelector(".s_opening_hours_widget");
-            if (!widget) return;
-
-            // Initial fetch
-            fetchStatus(widget);
-            fetchSchedule(widget);
-
-            // Poll status every minute
-            setInterval(function () {
-                fetchStatus(widget);
-            }, POLL_INTERVAL);
-
-            // Refresh schedule on hover (in case day changed)
-            var bar = widget.querySelector(".s_oh_status_bar");
-            var tooltip = widget.querySelector(".s_oh_schedule_tooltip");
-            if (bar) {
-                bar.addEventListener("mouseenter", function () {
-                    fetchSchedule(widget);
-                });
-                // Touch toggle for mobile
-                bar.addEventListener("click", function (e) {
-                    if (tooltip) {
-                        e.stopPropagation();
-                        var isOpen = tooltip.classList.toggle("s_oh_tooltip_open");
-                        if (isOpen) fetchSchedule(widget);
-                    }
-                });
-            }
-            if (tooltip) {
-                tooltip.addEventListener("click", function (e) {
-                    e.stopPropagation();
-                });
-            }
-            // Close tooltip on outside click
-            document.addEventListener("click", function () {
-                if (tooltip) tooltip.classList.remove("s_oh_tooltip_open");
-            });
-        });
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initWidgets);
-    } else {
-        initWidgets();
-    }
-})();
+    },
+});

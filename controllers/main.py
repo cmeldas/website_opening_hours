@@ -2,6 +2,8 @@ import hmac
 import json
 from datetime import timedelta, datetime
 
+import pytz
+
 from odoo import http, fields
 from odoo.http import request, Response
 
@@ -85,7 +87,8 @@ class OpeningHoursController(http.Controller):
         scheduled_open = today_info['is_open']
 
         # Check if current time is within today's opening hours
-        now = datetime.now()
+        user_tz = pytz.timezone(request.env.user.tz or 'Europe/Prague')
+        now = datetime.now(pytz.utc).astimezone(user_tz)
         current_hour = now.hour + now.minute / 60.0
         within_hours = False
         if scheduled_open and today_info['open_time'] and today_info['close_time']:
@@ -146,7 +149,8 @@ class OpeningHoursController(http.Controller):
                 close_h, close_m = map(int, info['close_time'].split(':'))
                 open_f = open_h + open_m / 60.0
                 close_f = close_h + close_m / 60.0
-                now = datetime.now()
+                user_tz = pytz.timezone(request.env.user.tz or 'Europe/Prague')
+                now = datetime.now(pytz.utc).astimezone(user_tz)
                 cur = now.hour + now.minute / 60.0
                 in_hours = open_f <= cur < close_f
                 if not ha_is_open and in_hours:
