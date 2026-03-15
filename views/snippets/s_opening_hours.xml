@@ -7,8 +7,8 @@
                 <!-- Inline status bar -->
                 <div class="s_oh_status_bar">
                     <div class="s_oh_indicator">
-                        <span class="s_oh_dot"></span>
-                        <span class="s_oh_status_text">Načítání...</span>
+                        <span class="s_oh_dot s_oh_dot--loading"></span>
+                        <span class="s_oh_status_text"></span>
                     </div>
                     <div class="s_oh_today_hours"></div>
                     <div class="s_oh_message"></div>

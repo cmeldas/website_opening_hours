@@ -1,6 +1,6 @@
 import hmac
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from odoo import http, fields
 from odoo.http import request, Response
@@ -83,16 +83,28 @@ class OpeningHoursController(http.Controller):
 
         # Determine display message
         scheduled_open = today_info['is_open']
+
+        # Check if current time is within today's opening hours
+        now = datetime.now()
+        current_hour = now.hour + now.minute / 60.0
+        within_hours = False
+        if scheduled_open and today_info['open_time'] and today_info['close_time']:
+            open_h, open_m = map(int, today_info['open_time'].split(':'))
+            close_h, close_m = map(int, today_info['close_time'].split(':'))
+            open_float = open_h + open_m / 60.0
+            close_float = close_h + close_m / 60.0
+            within_hours = open_float <= current_hour < close_float
+
         message = None
         display_status = 'closed'
 
         scheduled_hours = None
-        if ha_is_open and scheduled_open:
+        if ha_is_open and within_hours:
             display_status = 'open'
-        elif ha_is_open and not scheduled_open:
+        elif ha_is_open and not within_hours:
             display_status = 'open_early'
             message = 'Už jsme otevřeli dříve'
-        elif not ha_is_open and scheduled_open:
+        elif not ha_is_open and within_hours:
             display_status = 'closed_unexpected'
             message = 'Omlouváme se, ale aktuálně máme neplánovaně zavřeno'
             scheduled_hours = today_info['open_time'] + ' – ' + today_info['close_time']
@@ -128,11 +140,18 @@ class OpeningHoursController(http.Controller):
         for i in range(7):
             day = today + timedelta(days=i)
             info = self._get_day_info(day)
-            # For today, enrich with HA-aware display status
-            if i == 0:
-                if not ha_is_open and info['is_open']:
+            # For today, enrich with HA-aware display status (time-aware)
+            if i == 0 and info['is_open'] and info['open_time'] and info['close_time']:
+                open_h, open_m = map(int, info['open_time'].split(':'))
+                close_h, close_m = map(int, info['close_time'].split(':'))
+                open_f = open_h + open_m / 60.0
+                close_f = close_h + close_m / 60.0
+                now = datetime.now()
+                cur = now.hour + now.minute / 60.0
+                in_hours = open_f <= cur < close_f
+                if not ha_is_open and in_hours:
                     info['display_status'] = 'closed_unexpected'
-                elif ha_is_open and not info['is_open']:
+                elif ha_is_open and not in_hours:
                     info['display_status'] = 'open_early'
             schedule.append(info)
 

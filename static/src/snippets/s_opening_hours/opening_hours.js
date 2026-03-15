@@ -104,7 +104,9 @@
     function fetchStatus(widget) {
         fetch("/opening-hours/status")
             .then(function (r) { return r.json(); })
-            .then(function (data) { updateStatus(widget, data); })
+            .then(function (data) {
+                updateStatus(widget, data);
+            })
             .catch(function () {
                 var statusText = widget.querySelector(".s_oh_status_text");
                 if (statusText) statusText.textContent = "Nedostupné";

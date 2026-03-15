@@ -35,6 +35,11 @@
         flex-shrink: 0;
         transition: background 0.3s ease;
 
+        &--loading {
+            background: #e67e22;
+            box-shadow: 0 0 8px rgba(230, 126, 34, 0.5);
+        }
+
         &--open {
             background: #2ecc71;
             box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
