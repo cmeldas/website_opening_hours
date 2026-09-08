@@ -30,9 +30,10 @@ class OpeningHoursOverride(models.Model):
         help='Např. svátek, dovolená, speciální akce...',
     )
 
-    _sql_constraints = [
-        ('date_unique', 'UNIQUE(date)', 'Pro každý den může existovat pouze jeden přepis.'),
-    ]
+    _date_unique = models.Constraint(
+        'UNIQUE(date)',
+        'Pro každý den může existovat pouze jeden přepis.',
+    )
 
     @api.onchange('date')
     def _onchange_date(self):

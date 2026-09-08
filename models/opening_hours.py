@@ -38,9 +38,10 @@ class OpeningHours(models.Model):
         help='Hodina zavření (např. 18.0 = 18:00)',
     )
 
-    _sql_constraints = [
-        ('day_unique', 'UNIQUE(day_of_week)', 'Každý den v týdnu může mít pouze jeden záznam.'),
-    ]
+    _day_unique = models.Constraint(
+        'UNIQUE(day_of_week)',
+        'Každý den v týdnu může mít pouze jeden záznam.',
+    )
 
     @api.constrains('open_time', 'close_time')
     def _check_times(self):
@@ -50,6 +51,8 @@ class OpeningHours(models.Model):
                     'Zavírací čas musí být pozdější než otevírací čas.'
                 )
 
-    def name_get(self):
+    @api.depends('day_of_week')
+    def _compute_display_name(self):
         day_map = dict(self.DAY_SELECTION)
-        return [(rec.id, day_map.get(rec.day_of_week, rec.day_of_week)) for rec in self]
+        for rec in self:
+            rec.display_name = day_map.get(rec.day_of_week, rec.day_of_week or '')
