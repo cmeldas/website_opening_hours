@@ -1,6 +1,7 @@
 {
     'name': 'Website Opening Hours',
     'version': '19.0.1.0.0',
+    'author': 'Matouš Čmelík',
     'category': 'Website',
     'summary': 'Display opening hours widget on website with live open/closed status from Home Assistant',
     'description': """
