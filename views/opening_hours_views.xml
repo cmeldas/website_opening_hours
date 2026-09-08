@@ -129,7 +129,7 @@
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_opening_hours_status_form"/>
         <field name="res_id" ref="opening_hours_status_default"/>
-        <field name="target">inline</field>
+        <field name="target">current</field>
     </record>
 
 </odoo>
