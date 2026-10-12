@@ -165,7 +165,7 @@ class OpeningHoursController(http.Controller):
             status=200,
         )
 
-    @http.route('/opening-hours/webhook', type='jsonrpc', auth='none', methods=['POST'], csrf=False)
+    @http.route('/opening-hours/webhook', type='jsonrpc', auth='none', methods=['POST'], csrf=False, readonly=False)
     def webhook_ha_status(self, secret='', is_open=False, **kw):
         """Webhook endpoint called by Home Assistant when obchudek_otevren changes.
 

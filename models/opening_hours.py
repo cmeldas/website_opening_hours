@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 
 
 class OpeningHours(models.Model):
@@ -43,11 +44,11 @@ class OpeningHours(models.Model):
         'Každý den v týdnu může mít pouze jeden záznam.',
     )
 
-    @api.constrains('open_time', 'close_time')
+    @api.constrains('is_open', 'open_time', 'close_time')
     def _check_times(self):
         for rec in self:
             if rec.is_open and rec.open_time >= rec.close_time:
-                raise models.ValidationError(
+                raise ValidationError(
                     'Zavírací čas musí být pozdější než otevírací čas.'
                 )
 

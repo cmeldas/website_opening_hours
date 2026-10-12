@@ -1,0 +1,7 @@
+id,name,model_id,group_id/id,operation,domain
+access_opening_hours_admin,opening.hours.admin,opening.hours,base.group_system,crud,
+access_opening_hours_override_admin,opening.hours.override.admin,opening.hours.override,base.group_system,crud,
+access_opening_hours_status_admin,opening.hours.status.admin,opening.hours.status,base.group_system,crud,
+access_opening_hours_public,opening.hours.public,opening.hours,base.group_public,r,
+access_opening_hours_override_public,opening.hours.override.public,opening.hours.override,base.group_public,r,
+access_opening_hours_status_public,opening.hours.status.public,opening.hours.status,base.group_public,r,

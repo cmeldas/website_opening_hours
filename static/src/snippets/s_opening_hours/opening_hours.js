@@ -1,91 +1,186 @@
-/** @odoo-module **/
 /**
- * Opening Hours Website Snippet
- * Polls /opening-hours/status every 60 seconds.
- * Shows tooltip with 7-day schedule on hover.
+ * Snippet Otevírací doba (Odoo 20, Interaction).
+ *
+ * Stav obchůdku se načítá z /opening-hours/status každou minutu, rozvrh na 7 dní
+ * z /opening-hours/schedule (při startu, při najetí myší a při kliknutí na lištu).
+ *
+ * Odoo 20 zrušilo publicWidget (@web/legacy/js/public/public_widget), proto je to
+ * Interaction. Při zastavení (vstup do editoru webu, uložení stránky) vrací obsah do
+ * výchozího stavu šablony, takže editor do stránky neuloží vykreslený stav (v 19 se
+ * tam ukládal a po načtení chvíli svítil starý).
+ *
+ * Třídy a struktura HTML jsou stejné jako v 19: snippet je uložený přímo ve stránkách
+ * webu, šablona se při aktualizaci modulu nepřepisuje.
  */
-import publicWidget from "@web/legacy/js/public/public_widget";
+import { Interaction } from "@web/public/interaction";
+import { registry } from "@web/core/registry";
 
-var POLL_INTERVAL = 60000; // 1 minute
+const POLL_INTERVAL = 60000; // 1 minuta
 
-publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
-    selector: ".s_opening_hours",
+// stejné jako v šabloně s_opening_hours.xml
+const SCHEDULE_LOADING_HTML =
+    '<div class="text-center text-muted py-2">' +
+    '<div class="spinner-border spinner-border-sm" role="status">' +
+    '<span class="visually-hidden">Načítání...</span></div></div>';
+
+async function fetchJson(url) {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) {
+        throw new Error(`${url}: HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+export class OpeningHours extends Interaction {
+    // core Odoo má vlastní snippet website.s_opening_hours se stejnou třídou,
+    // náš poznáme podle vnitřního .s_opening_hours_widget
+    static selector = ".s_opening_hours";
+    static selectorHas = ".s_opening_hours_widget";
+
+    dynamicContent = {
+        ".s_oh_status_bar": {
+            "t-on-mouseenter": this.onBarMouseEnter,
+            "t-on-click": this.onBarClick,
+        },
+        ".s_oh_schedule_tooltip": {
+            "t-on-click": (ev) => ev.stopPropagation(),
+        },
+        _document: {
+            "t-on-click": this.onDocumentClick,
+        },
+    };
+
+    setup() {
+        this.widgetEl = this.el.querySelector(".s_opening_hours_widget");
+        this.tooltipEl = this.widgetEl.querySelector(".s_oh_schedule_tooltip");
+    }
 
     start() {
-        this._super(...arguments);
-        this.widget = this.el.querySelector(".s_opening_hours_widget");
-        if (!this.widget) return;
-
-        this._fetchStatus();
-        this._fetchSchedule();
-
-        this._pollInterval = setInterval(() => this._fetchStatus(), POLL_INTERVAL);
-
-        var bar = this.widget.querySelector(".s_oh_status_bar");
-        var tooltip = this.widget.querySelector(".s_oh_schedule_tooltip");
-
-        if (bar) {
-            bar.addEventListener("mouseenter", () => this._fetchSchedule());
-            bar.addEventListener("click", (e) => {
-                if (tooltip) {
-                    e.stopPropagation();
-                    var isOpen = tooltip.classList.toggle("s_oh_tooltip_open");
-                    if (isOpen) this._fetchSchedule();
-                }
-            });
-        }
-        if (tooltip) {
-            tooltip.addEventListener("click", (e) => e.stopPropagation());
-        }
-        document.addEventListener("click", () => {
-            if (tooltip) tooltip.classList.remove("s_oh_tooltip_open");
-        });
-    },
+        // obsah uložený editorem (starý stav) hned vyčistit
+        this.resetContent();
+        this.fetchStatus();
+        this.fetchSchedule();
+        this.setSafeInterval(() => this.fetchStatus(), POLL_INTERVAL);
+    }
 
     destroy() {
-        if (this._pollInterval) clearInterval(this._pollInterval);
-        this._super(...arguments);
-    },
+        this.resetContent();
+    }
 
-    _fetchStatus() {
-        var widget = this.widget;
-        fetch("/opening-hours/status")
-            .then((r) => r.json())
-            .then((data) => this._updateStatus(widget, data))
-            .catch(() => {
-                var statusText = widget.querySelector(".s_oh_status_text");
-                if (statusText) statusText.textContent = "Nedostupné";
-            });
-    },
+    // -------------------------------------------------------------------------
+    // Handlers
+    // -------------------------------------------------------------------------
 
-    _fetchSchedule() {
-        var widget = this.widget;
-        fetch("/opening-hours/schedule")
-            .then((r) => r.json())
-            .then((data) => this._renderSchedule(widget, data))
-            .catch(() => {
-                var list = widget.querySelector(".s_oh_schedule_list");
-                if (list)
-                    list.innerHTML =
-                        '<div class="text-center text-muted py-2">Nepodařilo se načíst</div>';
-            });
-    },
+    onBarMouseEnter() {
+        this.fetchSchedule();
+    }
 
-    _updateStatus(widget, data) {
-        var dot = widget.querySelector(".s_oh_dot");
-        var statusText = widget.querySelector(".s_oh_status_text");
-        var todayHours = widget.querySelector(".s_oh_today_hours");
-        var messageEl = widget.querySelector(".s_oh_message");
+    onBarClick(ev) {
+        if (!this.tooltipEl) {
+            return;
+        }
+        ev.stopPropagation();
+        const isOpen = this.tooltipEl.classList.toggle("s_oh_tooltip_open");
+        if (isOpen) {
+            this.fetchSchedule();
+        }
+    }
 
-        // Reset
+    onDocumentClick() {
+        this.tooltipEl?.classList.remove("s_oh_tooltip_open");
+    }
+
+    // -------------------------------------------------------------------------
+    // Data
+    // -------------------------------------------------------------------------
+
+    async fetchStatus() {
+        let data;
+        try {
+            data = await this.waitFor(fetchJson("/opening-hours/status"));
+        } catch {
+            if (!this.isDestroyed) {
+                this.protectSyncAfterAsync(() => {
+                    const statusText = this.widgetEl.querySelector(".s_oh_status_text");
+                    if (statusText) {
+                        statusText.textContent = "Nedostupné";
+                    }
+                })();
+            }
+            return;
+        }
+        this.protectSyncAfterAsync(() => this.renderStatus(data))();
+    }
+
+    async fetchSchedule() {
+        let schedule;
+        try {
+            schedule = await this.waitFor(fetchJson("/opening-hours/schedule"));
+        } catch {
+            if (!this.isDestroyed) {
+                this.protectSyncAfterAsync(() => {
+                    const list = this.widgetEl.querySelector(".s_oh_schedule_list");
+                    if (list) {
+                        list.innerHTML =
+                            '<div class="text-center text-muted py-2">Nepodařilo se načíst</div>';
+                    }
+                })();
+            }
+            return;
+        }
+        this.protectSyncAfterAsync(() => this.renderSchedule(schedule))();
+    }
+
+    // -------------------------------------------------------------------------
+    // DOM
+    // -------------------------------------------------------------------------
+
+    /** Vrátí dynamické části do stavu šablony s_opening_hours.xml. */
+    resetContent() {
+        const widget = this.widgetEl;
+        const dot = widget.querySelector(".s_oh_dot");
+        if (dot) {
+            dot.className = "s_oh_dot s_oh_dot--loading";
+        }
+        const statusText = widget.querySelector(".s_oh_status_text");
+        if (statusText) {
+            statusText.textContent = "";
+        }
+        const todayHours = widget.querySelector(".s_oh_today_hours");
+        if (todayHours) {
+            todayHours.className = "s_oh_today_hours";
+            todayHours.textContent = "";
+        }
+        const messageEl = widget.querySelector(".s_oh_message");
+        if (messageEl) {
+            messageEl.className = "s_oh_message";
+            messageEl.textContent = "";
+        }
+        this.tooltipEl?.classList.remove("s_oh_tooltip_open");
+        const list = widget.querySelector(".s_oh_schedule_list");
+        if (list) {
+            list.innerHTML = SCHEDULE_LOADING_HTML;
+        }
+    }
+
+    renderStatus(data) {
+        const widget = this.widgetEl;
+        const dot = widget.querySelector(".s_oh_dot");
+        const statusText = widget.querySelector(".s_oh_status_text");
+        const todayHours = widget.querySelector(".s_oh_today_hours");
+        const messageEl = widget.querySelector(".s_oh_message");
+        if (!dot || !statusText || !todayHours || !messageEl) {
+            return;
+        }
+
         dot.className = "s_oh_dot";
         messageEl.className = "s_oh_message";
         messageEl.textContent = "";
         todayHours.textContent = "";
         todayHours.className = "s_oh_today_hours";
 
-        var status = data.display_status;
-        var today = data.today;
+        const status = data.display_status;
+        const today = data.today;
 
         if (status === "open") {
             dot.classList.add("s_oh_dot--open");
@@ -105,7 +200,7 @@ publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
             statusText.textContent = "Zavřeno";
         }
 
-        // Today's hours
+        // dnešní hodiny
         if (status === "closed_unexpected" && data.scheduled_hours) {
             todayHours.classList.add("s_oh_today_hours--expected");
             todayHours.textContent = "Plán: " + data.scheduled_hours;
@@ -118,27 +213,29 @@ publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
         if (today.reason) {
             todayHours.textContent += " (" + today.reason + ")";
         }
-    },
+    }
 
-    _renderSchedule(widget, schedule) {
-        var list = widget.querySelector(".s_oh_schedule_list");
-        list.innerHTML = "";
+    renderSchedule(schedule) {
+        const list = this.widgetEl.querySelector(".s_oh_schedule_list");
+        if (!list) {
+            return;
+        }
+        list.replaceChildren();
 
-        schedule.forEach(function (day, index) {
-            var row = document.createElement("div");
+        schedule.forEach((day, index) => {
+            const row = document.createElement("div");
             row.className = "s_oh_schedule_row";
             if (index === 0) {
                 row.classList.add("s_oh_schedule_row--today");
             }
 
-            var nameEl = document.createElement("span");
+            const nameEl = document.createElement("span");
             nameEl.className = "s_oh_schedule_day";
             nameEl.textContent = day.day_name;
             row.appendChild(nameEl);
 
-            var hoursEl = document.createElement("span");
+            const hoursEl = document.createElement("span");
             hoursEl.className = "s_oh_schedule_hours";
-
             if (day.display_status === "closed_unexpected") {
                 hoursEl.textContent = day.open_time + " – " + day.close_time;
                 hoursEl.classList.add("s_oh_schedule_hours--unexpected");
@@ -152,7 +249,7 @@ publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
             row.appendChild(hoursEl);
 
             if (day.reason) {
-                var reasonEl = document.createElement("span");
+                const reasonEl = document.createElement("span");
                 reasonEl.className = "s_oh_schedule_reason";
                 reasonEl.textContent = day.reason;
                 row.appendChild(reasonEl);
@@ -160,5 +257,29 @@ publicWidget.registry.SOpeningHours = publicWidget.Widget.extend({
 
             list.appendChild(row);
         });
-    },
-});
+    }
+}
+
+/**
+ * V editoru webu a v náhledu bloků (dialog „přidat blok“) běží taky, aby byl vidět
+ * živý stav, ale bez klikání: klik v editoru vybírá blok. Vykreslené části nejsou
+ * editovatelné; před uložením editor interakci zastaví a destroy() je vrátí do stavu
+ * šablony.
+ */
+const OpeningHoursEdit = (I) =>
+    class extends I {
+        dynamicContent = {
+            ".s_oh_status_bar, .s_oh_schedule_list": {
+                "t-att-contenteditable": () => "false",
+            },
+        };
+    };
+
+registry.category("public.interactions").add("website_opening_hours.opening_hours", OpeningHours);
+
+for (const mode of ["edit", "preview"]) {
+    registry.category(`public.interactions.${mode}`).add("website_opening_hours.opening_hours", {
+        Interaction: OpeningHours,
+        mixin: OpeningHoursEdit,
+    });
+}
