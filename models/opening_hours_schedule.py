@@ -21,10 +21,41 @@ def format_time(value):
     return f'{hours}:{minutes:02d}'
 
 
+def format_hours_short(open_time, close_time):
+    """Krátce jako na ceduli: „15 – 18 h“, s minutami „15:30 – 18 h“."""
+    def short(value):
+        hours, minutes = float_to_hm(value)
+        return f'{hours}:{minutes:02d}' if minutes else str(hours)
+
+    return f'{short(open_time)} – {short(close_time)} h'
+
+
 def local_datetime(tz, day, hours):
     """Čas `hours` (float, i 24.0) dne `day` v pásmu `tz` jako aware datetime."""
     hour, minute = float_to_hm(hours)
     return tz.localize(datetime.combine(day, time()) + timedelta(hours=hour, minutes=minute))
+
+
+def is_summer_time(tz, day):
+    """Platí v den `day` letní čas? Rozhoduje poledne, takže den přechodu už patří novému času."""
+    return bool(tz.localize(datetime.combine(day, time(12))).dst())
+
+
+def season_range(tz, today, summer):
+    """Právě běžící, nebo nejbližší příští období letního (`summer`) či zimního času: (první, poslední den)."""
+    limit = 400
+    start = today
+    while is_summer_time(tz, start) != summer and limit:
+        start += timedelta(days=1)
+        limit -= 1
+    while is_summer_time(tz, start - timedelta(days=1)) == summer and limit:
+        start -= timedelta(days=1)
+        limit -= 1
+    end = start
+    while is_summer_time(tz, end + timedelta(days=1)) == summer and limit:
+        end += timedelta(days=1)
+        limit -= 1
+    return start, end
 
 
 def _same_day_in_year(day, year):
@@ -36,11 +67,12 @@ def _same_day_in_year(day, year):
 
 
 class OpeningHoursSchedule(models.Model):
-    """Rozvrh otevírací doby: výchozí (bez dat) a sezónní na rozmezí dat.
+    """Rozvrh otevírací doby: výchozí, pro letní a zimní čas, nebo na rozmezí dat.
 
-    Pro každý den platí nejdřív výjimka (`opening.hours.override`), jinak sezónní rozvrh,
-    do jehož rozmezí den spadá (při překryvu ten s kratším rozmezím, tedy konkrétnější),
-    jinak výchozí rozvrh.
+    Pro každý den platí nejdřív výjimka (`opening.hours.override`), jinak rozvrh na rozmezí
+    dat, do kterého den spadá (při překryvu ten s kratším rozmezím, tedy konkrétnější), jinak
+    rozvrh pro letní, nebo zimní čas (podle časového pásma obchůdku, takže se přepíná samo
+    s posunem hodin koncem března a koncem října), jinak výchozí rozvrh.
     """
     _name = 'opening.hours.schedule'
     _description = 'Opening Hours Schedule'
@@ -48,6 +80,20 @@ class OpeningHoursSchedule(models.Model):
 
     name = fields.Char(string='Název', required=True)
     active = fields.Boolean(default=True)
+    validity = fields.Selection(
+        [
+            ('summer_time', 'Letní čas'),
+            ('winter_time', 'Zimní čas'),
+            ('dates', 'Rozmezí dat'),
+            ('default', 'Výchozí (když neplatí jiný)'),
+        ],
+        string='Platí',
+        required=True,
+        default='dates',
+        help='Letní čas platí od posledního března do posledního října (posun hodin), zimní '
+             'zbytek roku; přepíná se samo každý rok. Rozmezí dat má přednost (třeba Vánoce), '
+             'výchozí rozvrh platí, když žádný jiný.',
+    )
     date_from = fields.Date(string='Platí od')
     date_to = fields.Date(string='Platí do')
     repeat_yearly = fields.Boolean(
@@ -59,7 +105,7 @@ class OpeningHoursSchedule(models.Model):
         string='Výchozí',
         compute='_compute_is_default',
         store=True,
-        help='Rozvrh bez dat platí vždy, když neplatí žádný sezónní.',
+        help='Platí vždy, když neplatí žádný jiný rozvrh.',
     )
     line_ids = fields.One2many(
         'opening.hours',
@@ -70,46 +116,66 @@ class OpeningHoursSchedule(models.Model):
     )
     period_display = fields.Char(string='Platnost', compute='_compute_period_display')
 
-    @api.depends('date_from', 'date_to')
+    @api.depends('validity')
     def _compute_is_default(self):
         for rec in self:
-            rec.is_default = not rec.date_from and not rec.date_to
+            rec.is_default = rec.validity == 'default'
 
-    @api.depends('date_from', 'date_to', 'repeat_yearly')
+    @api.depends('validity', 'date_from', 'date_to', 'repeat_yearly')
     def _compute_period_display(self):
+        """Platnost pro lidi; při zadávání ve formuláři může být vyplněné jen jedno datum."""
+        def day_text(day, with_year):
+            if not day:
+                return '…'
+            return f'{day.day}. {day.month}.' + (f' {day.year}' if with_year else '')
+
+        tz = self._tz()
+        today = datetime.now(tz).date()
         for rec in self:
-            if rec.is_default:
-                rec.period_display = 'Výchozí (když neplatí jiný)'
-            elif rec.repeat_yearly:
-                rec.period_display = (f'každý rok {rec.date_from.day}. {rec.date_from.month}. – '
-                                      f'{rec.date_to.day}. {rec.date_to.month}.')
+            if rec.validity in ('summer_time', 'winter_time'):
+                summer = rec.validity == 'summer_time'
+                start, end = season_range(tz, today, summer)
+                label = 'Letní čas' if summer else 'Zimní čas'
+                rec.period_display = f'{label}: {day_text(start, True)} – {day_text(end, True)}'
+            elif rec.validity == 'dates':
+                period = (f'{day_text(rec.date_from, not rec.repeat_yearly)} – '
+                          f'{day_text(rec.date_to, not rec.repeat_yearly)}')
+                rec.period_display = f'každý rok {period}' if rec.repeat_yearly else period
             else:
-                rec.period_display = (f'{rec.date_from.day}. {rec.date_from.month}. {rec.date_from.year} – '
-                                      f'{rec.date_to.day}. {rec.date_to.month}. {rec.date_to.year}')
+                rec.period_display = 'Výchozí (když neplatí jiný)'
+
+    @api.onchange('validity')
+    def _onchange_validity(self):
+        if self.validity != 'dates':
+            self.date_from = self.date_to = False
+            self.repeat_yearly = False
 
     def _default_line_commands(self):
-        """Nový rozvrh z formuláře začíná kopií dnů výchozího rozvrhu (kontext z akce)."""
+        """Nový rozvrh z formuláře začíná kopií dnů výchozího rozvrhu, jinak prvního rozvrhu."""
         if not self.env.context.get('opening_hours_prefill'):
             return []
-        default = self.search([('is_default', '=', True)], limit=1)
-        if default.line_ids:
-            return [fields.Command.create(line.copy_data({'schedule_id': False})[0]) for line in default.line_ids]
+        source = self.search([('is_default', '=', True)], limit=1) or self.search([], limit=1)
+        if source.line_ids:
+            return [fields.Command.create(line.copy_data({'schedule_id': False})[0]) for line in source.line_ids]
         return [fields.Command.create({'day_of_week': str(day), 'is_open': False}) for day in range(7)]
 
-    @api.constrains('date_from', 'date_to', 'repeat_yearly', 'active')
+    @api.constrains('validity', 'date_from', 'date_to', 'repeat_yearly', 'active')
     def _check_period(self):
+        labels = dict(self._fields['validity'].selection)
         for rec in self:
-            if bool(rec.date_from) != bool(rec.date_to):
-                raise ValidationError('Vyplňte obě data (od i do), nebo žádné pro výchozí rozvrh.')
-            if rec.date_from and not rec.repeat_yearly and rec.date_from > rec.date_to:
-                raise ValidationError('Datum „Platí do“ musí být stejné nebo pozdější než „Platí od“.')
-        if self.search_count([('is_default', '=', True)]) > 1:
-            raise ValidationError('Výchozí rozvrh (bez dat) může být jen jeden.')
+            if rec.validity == 'dates':
+                if not rec.date_from or not rec.date_to:
+                    raise ValidationError('U rozvrhu na rozmezí dat vyplňte obě data (od i do).')
+                if not rec.repeat_yearly and rec.date_from > rec.date_to:
+                    raise ValidationError('Datum „Platí do“ musí být stejné nebo pozdější než „Platí od“.')
+        for validity in ('default', 'summer_time', 'winter_time'):
+            if self.search_count([('validity', '=', validity)]) > 1:
+                raise ValidationError(f'Rozvrh „{labels[validity]}“ může být jen jeden (archivujte starý).')
 
     def _period_for(self, day):
-        """Rozmezí (od, do) tohoto sezónního rozvrhu, do kterého spadá `day`, jinak None."""
+        """Rozmezí (od, do) tohoto rozvrhu na rozmezí dat, do kterého spadá `day`, jinak None."""
         self.ensure_one()
-        if self.is_default:
+        if self.validity != 'dates' or not self.date_from or not self.date_to:
             return None
         if not self.repeat_yearly:
             return (self.date_from, self.date_to) if self.date_from <= day <= self.date_to else None
@@ -126,7 +192,7 @@ class OpeningHoursSchedule(models.Model):
 
     @api.model
     def _schedule_for(self, day, schedules):
-        """Rozvrh platný pro `day` z načtených `schedules`."""
+        """Rozvrh platný pro `day` z načtených `schedules`: rozmezí dat, letní/zimní čas, výchozí."""
         matches = [(period, rec) for rec in schedules if (period := rec._period_for(day))]
         if matches:
             # nejkratší rozmezí vyhrává, při shodě novější začátek
@@ -134,7 +200,11 @@ class OpeningHoursSchedule(models.Model):
                 matches,
                 key=lambda match: ((match[0][1] - match[0][0]).days, -match[0][0].toordinal(), -match[1].id),
             )[1]
-        return next((rec for rec in schedules if rec.is_default), self.browse())
+        season = 'summer_time' if is_summer_time(self._tz(), day) else 'winter_time'
+        return (
+            next((rec for rec in schedules if rec.validity == season), None)
+            or next((rec for rec in schedules if rec.is_default), self.browse())
+        )
 
     @api.model
     def _days(self, first_day, count, exclude_override=None):

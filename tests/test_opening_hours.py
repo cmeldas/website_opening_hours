@@ -4,7 +4,9 @@ import pytz
 
 from odoo import fields
 from odoo.exceptions import ValidationError
-from odoo.tests import HttpCase, TransactionCase, tagged
+from odoo.tests import Form, HttpCase, TransactionCase, tagged
+
+from odoo.addons.website_opening_hours.models.opening_hours_schedule import format_hours_short, season_range
 
 PRAGUE = pytz.timezone('Europe/Prague')
 
@@ -42,7 +44,7 @@ class TestOpeningHoursModels(TransactionCase):
         cls.Schedule.search([]).action_archive()
         cls.env['opening.hours.override'].search([]).unlink()
         # po a út zavřeno, jinak 15–19
-        cls.default = cls.Schedule.create({'name': 'Test výchozí', 'line_ids': week_lines()})
+        cls.default = cls.Schedule.create({'name': 'Test výchozí', 'validity': 'default', 'line_ids': week_lines()})
         cls.status = cls.env['opening.hours.status']._get_status()
         cls.status._clear_manual()
 
@@ -71,11 +73,12 @@ class TestOpeningHoursModels(TransactionCase):
         self.assertEqual(self.env.ref('website_opening_hours.opening_hours_sunday').display_name, 'Neděle')
 
     def test_default_schedule_from_data(self):
-        """Dny z dat modulu patří k výchozímu rozvrhu Celoročně."""
+        """Dny z dat modulu patří k rozvrhu Celoročně (po instalaci výchozí, uživatel ho může
+        přepnout třeba na letní čas)."""
         default = self.env.ref('website_opening_hours.opening_hours_schedule_default')
         self.assertEqual(self.env.ref('website_opening_hours.opening_hours_monday').schedule_id, default)
         self.assertEqual(len(default.line_ids), 7)
-        self.assertTrue(default.is_default)
+        self.assertEqual(default.is_default, default.validity == 'default')
 
     def test_schedule_period_constraints(self):
         with self.assertRaises(ValidationError):
@@ -83,9 +86,31 @@ class TestOpeningHoursModels(TransactionCase):
         with self.assertRaises(ValidationError):
             self.Schedule.create({'name': 'Obráceně', 'date_from': '2030-03-01', 'date_to': '2030-01-01'})
         with self.assertRaises(ValidationError):
-            self.Schedule.create({'name': 'Druhý výchozí'})
+            self.Schedule.create({'name': 'Druhý výchozí', 'validity': 'default'})
         # každý rok smí přecházet přes Nový rok
         self.Schedule.create({'name': 'Zima', 'date_from': '2030-11-01', 'date_to': '2030-03-31', 'repeat_yearly': True})
+
+    def test_form_partial_period(self):
+        """Nový rozvrh ve formuláři: po zadání jen „Platí od“ (3.0.0 tu padalo na prázdném „do“)."""
+        with Form(self.Schedule.with_context(opening_hours_prefill=True)) as form:
+            form.name = 'Zima'
+            form.date_from = date(2026, 10, 31)
+            self.assertEqual(form.period_display, '31. 10. 2026 – …')
+            form.date_to = date(2027, 3, 31)
+            self.assertEqual(form.period_display, '31. 10. 2026 – 31. 3. 2027')
+            form.repeat_yearly = True
+            self.assertEqual(form.period_display, 'každý rok 31. 10. – 31. 3.')
+            # přepnutí na zimní čas data smaže, platnost ukáže nejbližší zimní období
+            form.validity = 'winter_time'
+            self.assertFalse(form.date_from)
+            self.assertTrue(form.period_display.startswith('Zimní čas: '))
+            form.validity = 'dates'
+            form.date_from = date(2026, 10, 31)
+            form.date_to = date(2027, 3, 31)
+            form.repeat_yearly = True
+        winter = self.Schedule.search([('name', '=', 'Zima')])
+        self.assertEqual(len(winter.line_ids), 7)
+        self.assertEqual(self._day(date(2026, 12, 2))['schedule'], 'Zima')
 
     def test_prefill_from_default(self):
         """Nový rozvrh z menu začíná kopií dnů výchozího rozvrhu."""
@@ -128,6 +153,46 @@ class TestOpeningHoursModels(TransactionCase):
         })
         info = self._day(date(2030, 12, 25))
         self.assertEqual((info['source'], info['is_open'], info['open_time'], info['reason']), ('override', True, 10.0, 'Trhy'))
+
+    def test_summer_and_winter_time(self):
+        """Rozvrh pro letní a zimní čas se přepíná s posunem hodin, rozmezí dat má přednost.
+
+        2030: letní čas od neděle 31. 3., zimní od neděle 27. 10. (den přechodu patří novému).
+        """
+        summer = self.Schedule.create({'name': 'Léto', 'validity': 'summer_time', 'line_ids': week_lines(15.0, 19.0)})
+        winter = self.Schedule.create({'name': 'Zima', 'validity': 'winter_time', 'line_ids': week_lines(15.0, 18.0)})
+        cases = {
+            date(2030, 3, 30): 'Zima',
+            date(2030, 3, 31): 'Léto',
+            date(2030, 7, 3): 'Léto',
+            date(2030, 10, 26): 'Léto',
+            date(2030, 10, 27): 'Zima',
+            date(2030, 12, 4): 'Zima',
+        }
+        for day, name in cases.items():
+            self.assertEqual(self._day(day)['schedule'], name, day)
+        self.assertEqual(self._day(date(2030, 12, 4))['close_time'], 18.0)
+        self.assertEqual(self._day(date(2030, 7, 3))['close_time'], 19.0)
+
+        # rozmezí dat má přednost před letním/zimním časem
+        self.Schedule.create({
+            'name': 'Vánoce', 'validity': 'dates', 'date_from': '2030-12-20', 'date_to': '2030-12-31',
+            'line_ids': week_lines(10.0, 12.0),
+        })
+        self.assertEqual(self._day(date(2030, 12, 25))['schedule'], 'Vánoce')
+        self.assertEqual(self._day(date(2031, 1, 8))['schedule'], 'Zima')
+
+        with self.assertRaises(ValidationError):
+            self.Schedule.create({'name': 'Léto 2', 'validity': 'summer_time'})
+        self.assertTrue(summer.period_display.startswith('Letní čas: '))
+        self.assertTrue(winter.period_display.startswith('Zimní čas: '))
+
+    def test_season_range(self):
+        """Právě běžící nebo příští období letního/zimního času."""
+        self.assertEqual(season_range(PRAGUE, date(2030, 6, 1), True), (date(2030, 3, 31), date(2030, 10, 26)))
+        self.assertEqual(season_range(PRAGUE, date(2030, 6, 1), False), (date(2030, 10, 27), date(2031, 3, 29)))
+        self.assertEqual(season_range(PRAGUE, date(2030, 12, 4), False), (date(2030, 10, 27), date(2031, 3, 29)))
+        self.assertEqual(season_range(PRAGUE, date(2030, 12, 4), True), (date(2031, 3, 30), date(2031, 10, 25)))
 
     def test_override_onchange_uses_valid_schedule(self):
         self.Schedule.create({
@@ -201,20 +266,23 @@ class TestOpeningHoursModels(TransactionCase):
         """Předpokládaná doba v hlavičce: dnes do zavření, pak nejbližší otevření."""
         status_model = self.env['opening.hours.status']
         header = status_model._website_header(utc(WEDNESDAY, 10))
-        self.assertEqual(header['hours_label'], '15:00 – 19:00')
+        self.assertEqual(header['hours_label'], '15 – 19 h')
         self.assertEqual([day['label'] for day in header['days'][:3]], ['Dnes', 'Zítra', 'Pátek'])
         self.assertTrue(header['days'][0]['is_today'])
         self.assertEqual(header['days'][0]['hours'], '15:00 – 19:00')
         # po zavření zítřek
-        self.assertEqual(status_model._website_header(utc(WEDNESDAY, 19, 30))['hours_label'], 'zítra 15:00 – 19:00')
+        self.assertEqual(status_model._website_header(utc(WEDNESDAY, 19, 30))['hours_label'], 'zítra 15 – 19 h')
         # neděle večer: po a út zavřeno, další otevření ve středu
         sunday = WEDNESDAY + timedelta(days=4)
         header = status_model._website_header(utc(sunday, 20))
-        self.assertEqual(header['hours_label'], 've středu 15:00 – 19:00')
+        self.assertEqual(header['hours_label'], 've středu 15 – 19 h')
         self.assertEqual(header['days'][1]['hours'], 'Zavřeno')
         # celý týden zavřeno
         self.default.line_ids.write({'is_open': False})
         self.assertEqual(status_model._website_header(utc(WEDNESDAY, 10))['hours_label'], 'Tento týden zavřeno')
+        # krátce jako na ceduli, minuty jen když nejsou nulové
+        self.assertEqual(format_hours_short(15.5, 18.0), '15:30 – 18 h')
+        self.assertEqual(format_hours_short(9.0, 24.0), '9 – 24 h')
 
     def test_ha_report_fields_readonly(self):
         """Co hlásí HA, se v Odoo ručně nemění (jen webhook)."""

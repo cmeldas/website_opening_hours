@@ -4,6 +4,7 @@
         <!-- Výchozí rozvrh (bez dat) a jeho dny; sezónní rozvrhy se zakládají v menu Rozvrhy -->
         <record id="opening_hours_schedule_default" model="opening.hours.schedule">
             <field name="name">Celoročně</field>
+            <field name="validity">default</field>
         </record>
 
         <record id="opening_hours_monday" model="opening.hours">

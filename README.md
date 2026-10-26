@@ -11,14 +11,18 @@ Menu **Otevírací doba**:
   změna, co naposledy hlásil Home Assistant (jen ke čtení). Tlačítka **Otevřít**, **Zavřít**,
   **Dnes už neotevírat** a **Zpět podle rozvrhu** (vidí je každý přihlášený uživatel). Nic
   technického, napojení HA je v Nastavení.
-- **Rozvrhy** (`opening.hours.schedule`, jen správce): výchozí rozvrh bez dat („Celoročně“)
-  a sezónní rozvrhy na rozmezí dat, volitelně **každý rok** (zima 1. 11. – 31. 3. přes Nový
-  rok). Každý rozvrh má 7 dnů s otevřeno ano/ne a časy (`opening.hours`). Nový rozvrh začíná
-  kopií dnů výchozího.
+- **Rozvrhy** (`opening.hours.schedule`, jen správce), u každého **Platí**:
+  - **Letní čas** / **Zimní čas**: přepínají se samy s posunem hodin (poslední neděle v březnu
+    a v říjnu, podle pásma Europe/Prague; den přechodu už patří novému času). Pro obchůdek
+    typicky „Léto“ a „Zima“ (zima zavírá v 18:00).
+  - **Rozmezí dat**, volitelně **každý rok** (i přes Nový rok), třeba Vánoce.
+  - **Výchozí**: platí, když žádný jiný (po instalaci „Celoročně“).
+  Každý rozvrh má 7 dnů s otevřeno ano/ne a časy (`opening.hours`). Nový rozvrh začíná
+  kopií dnů výchozího (jinak prvního) rozvrhu. Letní, zimní i výchozí smí být jen jeden.
 - **Výjimky (dny)** (`opening.hours.override`, kalendář): svátky, dovolená, akce na konkrétní den.
 
-Co platí pro den: **výjimka** → **sezónní rozvrh**, do jehož rozmezí den spadá (při překryvu
-ten s kratším rozmezím, tedy Vánoce před zimou) → **výchozí rozvrh**. Nad tím **ruční stav**:
+Co platí pro den: **výjimka** → **rozmezí dat**, do kterého den spadá (při překryvu ten
+s kratším rozmezím) → **letní / zimní čas** → **výchozí rozvrh**. Nad tím **ruční stav**:
 
 | akce | platí do |
 |---|---|
@@ -31,12 +35,16 @@ ten s kratším rozmezím, tedy Vánoce před zimou) → **výchozí rozvrh**. N
 Ruční stav vždy platí nejdéle do konce dne. Časy jsou v pásmu firmy (výchozí Europe/Prague).
 
 **Na webu je otevírací doba v hlavičce každé stránky** (od 3.0.0, dřív blok pro vkládání
-do stránek). Od šířky 1200 px v navigační liště vedle hledání, na užších obrazovkách
-v řádku pod lištou (s barvou hlavičky). Řádek pod lištou mají všechny hlavičky, lištu jen
-výchozí hlavička (`website.template_header_default`), kterou web používá.
+do stránek). V navigační liště vedle hledání, **když se tam vejde** (od 1200 px a jen
+když kvůli ní Odoo nesbalí menu do „+“); jinak v řádku pod lištou (s barvou hlavičky).
+Místo i se stavem se vyhradí hned při načtení a do rozhodnutí je otevírací doba v liště
+neviditelná (jako menu Odoo), takže neposkočí. Při změně šířky okna se lišta zkusí znovu.
+Řádek pod lištou mají všechny hlavičky, lištu jen výchozí hlavička
+(`website.template_header_default`), kterou web používá.
 
-- Server vykreslí **předpokládanou dobu** podle rozvrhu: dnešní hodiny, a když už dnes
-  neotevře, nejbližší otevření („zítra 15:00 – 19:00“, „ve středu 15:00 – 19:00“).
+- Server vykreslí **předpokládanou dobu** podle rozvrhu krátce jako na ceduli: dnešní
+  hodiny („15 – 18 h“), a když už dnes neotevře, nejbližší otevření („zítra 15 – 18 h“,
+  „ve středu 15 – 18 h“). V rozbaleném rozvrhu jsou úplné časy.
 - **Stav (tečka a Otevřeno/Zavřeno) se ukáže až po odpovědi** `/opening-hours/status`:
   vysune se zleva a hodiny se posunou doprava. Do té doby není vidět, takže při načtení
   nikdy neproblikne starý stav. Místo je v liště vyhrazené, menu se neposune.
@@ -100,6 +108,13 @@ odoo -d <db> -i website_opening_hours --test-enable --test-tags /website_opening
 Modely (rozvrhy, sezóny přes Nový rok, přednosti, přechod na zimní čas, ruční stav a jeho
 konec, hlášení z HA včetně starého, předpokládaná doba v hlavičce), JSON trasy, webhook,
 `ha-state`, Webhook Secret v Nastavení, hlavička na stránce bez stavu, blok už není v editoru.
+
+## 20.0.3.1.0
+
+- Rozvrhy pro **letní a zimní čas** (pole Platí), přepínají se samy s posunem hodin.
+  `migrations/20.0.3.1.0/post-migrate.py`: rozvrh bez dat je výchozí, s daty na rozmezí dat.
+- Oprava z 3.0.1: nový rozvrh s vyplněným jen „Platí od“ padal (prázdné „Platí do“).
+- Hlavička: krátký čas jako na ceduli; v liště jen když se vejde, jinak pod ní.
 
 ## 20.0.3.0.0
 

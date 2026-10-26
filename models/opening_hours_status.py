@@ -5,7 +5,7 @@ import pytz
 from odoo import fields, models
 from odoo.exceptions import AccessError
 
-from .opening_hours_schedule import DAY_AT_CZ, DAY_NAMES_CZ, format_time, local_datetime
+from .opening_hours_schedule import DAY_AT_CZ, DAY_NAMES_CZ, format_hours_short, format_time, local_datetime
 
 LOOKAHEAD_DAYS = 8
 STALE_HA_REPORT = timedelta(minutes=10)
@@ -309,8 +309,9 @@ class OpeningHoursStatus(models.Model):
         """Otevírací doba v hlavičce webu, jak ji vykreslí server (bez stavu otevřeno/zavřeno).
 
         Stav doplní JS z `/opening-hours/status`, až ho server potvrdí; tady je jen podle
-        rozvrhu předpokládaná doba: dnešní hodiny, a když už dnes neotevře, nejbližší
-        otevření („zítra 15:00 – 19:00“, „ve středu 15:00 – 19:00“). A 7 dní pro rozbalení.
+        rozvrhu předpokládaná doba krátce jako na ceduli: dnešní hodiny, a když už dnes
+        neotevře, nejbližší otevření („zítra 15 – 19 h“, „ve středu 15 – 19 h“). A 7 dní pro
+        rozbalení s úplnými časy.
 
         :param now: naivní UTC, výchozí teď
         """
@@ -324,7 +325,7 @@ class OpeningHoursStatus(models.Model):
 
         today = days[0]
         if today['is_open'] and now_local < local_datetime(tz, today['date'], today['close_time']):
-            hours_label = hours(today)
+            hours_label = format_hours_short(today['open_time'], today['close_time'])
         else:
             offset, upcoming = next(
                 ((offset, info) for offset, info in enumerate(days[1:], start=1) if info['is_open']),
@@ -334,7 +335,7 @@ class OpeningHoursStatus(models.Model):
                 hours_label = 'Tento týden zavřeno'
             else:
                 when = 'zítra' if offset == 1 else DAY_AT_CZ[upcoming['date'].weekday()]
-                hours_label = f'{when} {hours(upcoming)}'
+                hours_label = f'{when} {format_hours_short(upcoming["open_time"], upcoming["close_time"])}'
 
         def label(offset, info):
             if offset == 0:

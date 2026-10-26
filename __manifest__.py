@@ -1,11 +1,12 @@
 {
     'name': 'Website Opening Hours',
-    'version': '20.0.3.0.0',
+    'version': '20.0.3.1.0',
     'author': 'Matouš Čmelík',
     'category': 'Website',
     'summary': 'Opening hours of the shop with seasonal schedules, manual open/close and Home Assistant sync',
     'description': """
-        Otevírací doba obchůdku: výchozí a sezónní rozvrhy (rozmezí dat, i každý rok),
+        Otevírací doba obchůdku: rozvrhy pro letní a zimní čas (přepínají se samy s posunem
+        hodin), na rozmezí dat (i každý rok) a výchozí,
         výjimky na dny, ruční Otevřít / Zavřít. Odoo je zdroj pravdy, Home Assistant
         se podle něj přepíná (input_boolean.obchudek_otevren) a ruční přepnutí v HA
         posílá zpět. Na webu v hlavičce každé stránky stav a rozvrh na 7 dní.

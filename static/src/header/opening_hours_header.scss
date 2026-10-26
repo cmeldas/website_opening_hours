@@ -263,12 +263,18 @@ $o-oh-orange: #e67e22;
 }
 
 /* ---------- Umístění: v liště (od 1200 px), jinak řádek pod lištou ---------- */
-/* V liště je místo pro celou lištu i se stavem vyhrazené předem: stav se vysune doleva
-   a menu uprostřed lišty se při jeho příchodu neposune. */
+/* V liště je místo i se stavem vyhrazené předem (JS nastaví min-width): stav se vysune
+   doleva a menu uprostřed lišty se při jeho příchodu neposune ani nesbalí. */
 .o_oh_nav_item {
     align-items: center;
     justify-content: flex-end;
-    min-width: 15.5rem;
+    // do rozhodnutí, jestli se vejde, neviditelná (jako menu Odoo s o_menu_loading)
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+header.o_oh_room_checked .o_oh_nav_item {
+    opacity: 1;
 }
 
 /* Řádek pod lištou: třídy navbar navbar-light mu dají barvu hlavičky (motiv webu),
@@ -285,9 +291,14 @@ $o-oh-orange: #e67e22;
 }
 
 @media (min-width: 1200px) {
-    #{"header:has(.o_oh_nav_item) .o_oh_strip"} {
+    #{"header:has(.o_oh_nav_item):not(.o_oh_no_room) .o_oh_strip"} {
         display: none;
     }
+}
+
+/* V liště není místo (Odoo by sbalilo menu): otevírací doba jen pod lištou. */
+header.o_oh_no_room .o_oh_nav_item {
+    display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

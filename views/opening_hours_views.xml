@@ -11,6 +11,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
+                <field name="validity"/>
                 <field name="period_display"/>
                 <field name="is_default" column_invisible="True"/>
                 <field name="active" column_invisible="True"/>
@@ -31,9 +32,10 @@
                     </div>
                     <group>
                         <group>
-                            <field name="date_from"/>
-                            <field name="date_to"/>
-                            <field name="repeat_yearly" invisible="not date_from and not date_to"/>
+                            <field name="validity" widget="radio"/>
+                            <field name="date_from" invisible="validity != 'dates'" required="validity == 'dates'"/>
+                            <field name="date_to" invisible="validity != 'dates'" required="validity == 'dates'"/>
+                            <field name="repeat_yearly" invisible="validity != 'dates'"/>
                             <field name="active" invisible="1"/>
                         </group>
                         <group>
@@ -41,9 +43,10 @@
                         </group>
                     </group>
                     <div class="text-muted mb-3">
-                        Bez dat je to výchozí rozvrh, platí vždy, když neplatí žádný sezónní.
-                        Když se sezónní rozvrhy překrývají, platí ten s kratším rozmezím.
-                        Výjimky na jednotlivé dny mají přednost před všemi rozvrhy.
+                        Letní a zimní čas se přepínají samy s posunem hodin (poslední neděle v březnu
+                        a v říjnu). Rozvrh na rozmezí dat (třeba Vánoce) má před nimi přednost, při
+                        překryvu platí ten s kratším rozmezím. Výchozí rozvrh platí, když neplatí žádný
+                        jiný. Výjimky na jednotlivé dny mají přednost před všemi rozvrhy.
                     </div>
                     <field name="line_ids">
                         <list editable="bottom" default_order="day_of_week" create="0">

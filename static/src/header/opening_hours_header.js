@@ -12,12 +12,24 @@
  *
  * Komponenta je na stránce dvakrát (v liště a pod ní, podle šířky je vidět jedna),
  * dotaz na stav sdílejí.
+ *
+ * V liště je jen tehdy, když se vejde: místo i se stavem se vyhradí hned při načtení
+ * (Odoo podle něj jednou rozhodne, jestli menu sbalí do „+“), a když Odoo menu sbalí,
+ * otevírací doba se přesune do řádku pod lištou (třída o_oh_no_room na hlavičce) a menu
+ * se zase rozbalí. Při změně šířky okna se lišta zkusí znovu.
  */
 import { Interaction } from "@web/public/interaction";
 import { registry } from "@web/core/registry";
 
 const POLL_INTERVAL = 60000; // 1 minuta
 const SHARED_FETCH_MS = 5000;
+// místo pro stav (tečka, „Otevřeno“, mezera) vyhrazené v liště předem
+const STATUS_RESERVE_PX = 100;
+
+/** Dva snímky: Odoo mezitím přepočítá sbalení menu (ResizeObserver + requestAnimationFrame). */
+function nextFrames() {
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
 
 const STATUS_TEXT = {
     open: "Otevřeno",
@@ -88,6 +100,57 @@ export class OpeningHoursHeader extends Interaction {
     start() {
         this.refreshStatus();
         this.setSafeInterval(() => this.refreshStatus(), POLL_INTERVAL);
+        this.navItem = this.el.closest(".o_oh_nav_item");
+        if (this.navItem) {
+            this.header = this.el.closest("header");
+            this.registerCleanup(() => {
+                this.navItem.style.minWidth = "";
+                this.header?.classList.remove("o_oh_no_room", "o_oh_room_checked");
+            });
+            this.reserveNavWidth();
+            this.waitFor(document.fonts.ready).then(() => this.checkNavRoom());
+            this.addListener(window, "resize", this.debounced(this.retryNav, 250));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Místo v liště
+    // -------------------------------------------------------------------------
+
+    /** Vyhradit v liště šířku i se stavem, ať se po jeho příchodu menu nesbalí ani neposune. */
+    reserveNavWidth() {
+        const bar = this.el.querySelector(".o_oh_bar");
+        const status = this.el.querySelector(".o_oh_status");
+        const barWidth = bar.getBoundingClientRect().width - status.getBoundingClientRect().width;
+        if (barWidth > 0) {
+            this.navItem.style.minWidth = `${Math.ceil(barWidth + STATUS_RESERVE_PX)}px`;
+        }
+    }
+
+    /**
+     * Odoo sbalilo menu do „+“: lišta je plná, otevírací doba půjde pod ni. Do rozhodnutí
+     * je v liště neviditelná (jako menu Odoo, dokud se nepřepočítá), ať neposkočí.
+     */
+    async checkNavRoom() {
+        await nextFrames();
+        if (this.isDestroyed || !this.header) {
+            return;
+        }
+        if (this.navItem.offsetParent && this.header.querySelector("#top_menu > .o_extra_menu_items")) {
+            this.header.classList.add("o_oh_no_room");
+        }
+        this.header.classList.add("o_oh_room_checked");
+    }
+
+    /** Po změně šířky okna zkusit lištu znovu. */
+    async retryNav() {
+        this.header?.classList.remove("o_oh_no_room");
+        await nextFrames();
+        if (this.isDestroyed) {
+            return;
+        }
+        this.reserveNavWidth();
+        await this.checkNavRoom();
     }
 
     async refreshStatus() {
