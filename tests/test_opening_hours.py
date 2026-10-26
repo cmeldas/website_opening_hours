@@ -197,6 +197,25 @@ class TestOpeningHoursModels(TransactionCase):
         self.assertEqual(state['manual_until'], PRAGUE.localize(datetime(2030, 6, 4, 0, 0)))
         self.assertFalse(self._state(MONDAY + timedelta(days=1), 0, 30)['is_open'])
 
+    def test_website_header_hours_label(self):
+        """Předpokládaná doba v hlavičce: dnes do zavření, pak nejbližší otevření."""
+        status_model = self.env['opening.hours.status']
+        header = status_model._website_header(utc(WEDNESDAY, 10))
+        self.assertEqual(header['hours_label'], '15:00 – 19:00')
+        self.assertEqual([day['label'] for day in header['days'][:3]], ['Dnes', 'Zítra', 'Pátek'])
+        self.assertTrue(header['days'][0]['is_today'])
+        self.assertEqual(header['days'][0]['hours'], '15:00 – 19:00')
+        # po zavření zítřek
+        self.assertEqual(status_model._website_header(utc(WEDNESDAY, 19, 30))['hours_label'], 'zítra 15:00 – 19:00')
+        # neděle večer: po a út zavřeno, další otevření ve středu
+        sunday = WEDNESDAY + timedelta(days=4)
+        header = status_model._website_header(utc(sunday, 20))
+        self.assertEqual(header['hours_label'], 've středu 15:00 – 19:00')
+        self.assertEqual(header['days'][1]['hours'], 'Zavřeno')
+        # celý týden zavřeno
+        self.default.line_ids.write({'is_open': False})
+        self.assertEqual(status_model._website_header(utc(WEDNESDAY, 10))['hours_label'], 'Tento týden zavřeno')
+
     def test_ha_report_fields_readonly(self):
         """Co hlásí HA, se v Odoo ručně nemění (jen webhook)."""
         fields_info = self.env['opening.hours.status'].fields_get(['ha_is_open', 'last_update'], ['readonly'])
@@ -366,10 +385,24 @@ class TestOpeningHoursHttp(HttpCase):
         result = self.make_jsonrpc_request('/opening-hours/webhook', {'secret': 'tajne-heslo', 'is_open': True})
         self.assertEqual(result['status'], 'error')
 
-    def test_snippet_registered(self):
-        """Snippet je v panelu stavebních bloků a jeho šablona se vykreslí."""
+    def test_header_on_every_page(self):
+        """Otevírací doba je v hlavičce (v liště i pod ní) s předpokládanou dobou, bez stavu.
+
+        Stav Otevřeno/Zavřeno doplní až JS z /opening-hours/status, server ho nevykreslí.
+        """
+        self._set_today(True, 10.0, 18.0)
+        response = self.url_open('/')
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        self.assertIn('o_oh_at_nav', html)
+        self.assertIn('o_oh_at_strip', html)
+        self.assertEqual(html.count('class="o_oh_bar"'), 2)
+        self.assertIn('class="o_oh_status_text"></span>', html)
+        self.assertNotIn('Otevřeno</span>', html)
+        self.assertIn('o_oh_day_today', html)
+
+    def test_snippet_removed(self):
+        """Blok pro vkládání do stránek už v nabídce editoru není."""
         arch = self.env.ref('website.snippets').get_combined_arch()
-        self.assertIn('t-snippet="website_opening_hours.s_opening_hours"', arch)
-        html = str(self.env['ir.qweb']._render('website_opening_hours.s_opening_hours'))
-        for css_class in ('s_opening_hours', 's_opening_hours_widget', 's_oh_status_bar', 's_oh_schedule_list'):
-            self.assertIn(css_class, html)
+        self.assertNotIn('website_opening_hours.s_opening_hours', arch)
+        self.assertFalse(self.env.ref('website_opening_hours.s_opening_hours', raise_if_not_found=False))

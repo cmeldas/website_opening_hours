@@ -30,15 +30,25 @@ ten s kratším rozmezím, tedy Vánoce před zimou) → **výchozí rozvrh**. N
 
 Ruční stav vždy platí nejdéle do konce dne. Časy jsou v pásmu firmy (výchozí Europe/Prague).
 
-**Snippet webu „Otevírací doba“** (blok v editoru webu ve skupině Obsah): lišta se stavem,
-dnešními hodinami a hláškou jako zaoblené tlačítko se šipkou dolů (při rozbalení se otočí,
-ovládá se i klávesnicí); rozvrh na 7 dní po najetí myší nebo klepnutím na lištu, dalším
-klepnutím (i na rozvrh) se schová. Na mobilu se rozvrh ukazuje jen klepnutím (dřív po
-klepnutí zůstal viset, protože `:hover` na dotykovém displeji trvá).
+**Na webu je otevírací doba v hlavičce každé stránky** (od 3.0.0, dřív blok pro vkládání
+do stránek). Od šířky 1200 px v navigační liště vedle hledání, na užších obrazovkách
+v řádku pod lištou (s barvou hlavičky). Řádek pod lištou mají všechny hlavičky, lištu jen
+výchozí hlavička (`website.template_header_default`), kterou web používá.
 
-Stavy na webu: `open` (otevřeno podle rozvrhu), `open_early` (ručně otevřeno mimo otevírací
-dobu: „Už jsme otevřeli dříve“ před dnešním otevřením, jinak „Mimořádně máme otevřeno“),
-`closed_unexpected` (ručně zavřeno v otevírací době, omluva a plánované hodiny), `closed`.
+- Server vykreslí **předpokládanou dobu** podle rozvrhu: dnešní hodiny, a když už dnes
+  neotevře, nejbližší otevření („zítra 15:00 – 19:00“, „ve středu 15:00 – 19:00“).
+- **Stav (tečka a Otevřeno/Zavřeno) se ukáže až po odpovědi** `/opening-hours/status`:
+  vysune se zleva a hodiny se posunou doprava. Do té doby není vidět, takže při načtení
+  nikdy neproblikne starý stav. Místo je v liště vyhrazené, menu se neposune.
+- Lišta je tlačítko se šipkou; kliknutím/klepnutím (na počítači i najetím myší) se rozbalí
+  rozvrh na 7 dní (Dnes, Zítra, …, důvody výjimek), dalším klepnutím nebo Escape se schová.
+  Při ručním otevření/zavření je nahoře hláška („Mimořádně máme otevřeno“, „Omlouváme se,
+  ale aktuálně máme neplánovaně zavřeno“).
+
+Stavy (`display_status` z `/opening-hours/status`): `open` (otevřeno podle rozvrhu),
+`open_early` (ručně otevřeno mimo otevírací dobu: „Už jsme otevřeli dříve“ před dnešním
+otevřením, jinak „Mimořádně máme otevřeno“), `closed_unexpected` (ručně zavřeno v otevírací
+době, hodiny oranžově), `closed`.
 
 ## Home Assistant
 
@@ -72,8 +82,8 @@ Když Odoo neběží, HA nechá stav, jak je, a obchůdek jde přepínat ručně
 
 | cesta | typ | k čemu |
 |---|---|---|
-| `/opening-hours/status` | GET, JSON | aktuální stav, snippet se ptá každou minutu |
-| `/opening-hours/schedule` | GET, JSON | rozvrh na 7 dní od dneška včetně výjimek |
+| `/opening-hours/status` | GET, JSON | aktuální stav, hlavička webu se ptá každou minutu |
+| `/opening-hours/schedule` | GET, JSON | rozvrh na 7 dní od dneška včetně výjimek (hlavička ho má od serveru, pro jiné použití) |
 | `/opening-hours/ha-state` | POST JSON-RPC, `auth='none'` | HA: `{"is_open", "scheduled_open", "manual", "manual_until", "next_change"}` (UTC) |
 | `/opening-hours/webhook` | POST JSON-RPC, `auth='none'` | HA: `{"secret": "...", "is_open": true/false, "changed_at": "ISO"}` → `{"status", "is_open", "result": "confirmed"/"manual"/"stale"}` |
 
@@ -88,7 +98,16 @@ odoo -d <db> -i website_opening_hours --test-enable --test-tags /website_opening
 ```
 
 Modely (rozvrhy, sezóny přes Nový rok, přednosti, přechod na zimní čas, ruční stav a jeho
-konec, hlášení z HA včetně starého), JSON trasy, webhook, `ha-state`, registrace snippetu.
+konec, hlášení z HA včetně starého, předpokládaná doba v hlavičce), JSON trasy, webhook,
+`ha-state`, Webhook Secret v Nastavení, hlavička na stránce bez stavu, blok už není v editoru.
+
+## 20.0.3.0.0
+
+- Otevírací doba v hlavičce každé stránky místo bloku pro vkládání do stránek (šablona
+  `header_opening_hours`, JS `static/src/header/`). Blok zmizel z editoru webu.
+- `migrations/20.0.3.0.0/post-migrate.py` odstraní uložené bloky ze stránek (na produkci
+  domovská stránka, Sýrárna, obchod), jinak by tam zůstala prázdná lišta a stav dvakrát.
+- Předpokládaná doba ze serveru hned, stav až po potvrzení serverem (bez problikávání).
 
 ## 20.0.2.0.1
 

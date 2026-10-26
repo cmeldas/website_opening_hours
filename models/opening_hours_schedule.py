@@ -7,6 +7,8 @@ from odoo.exceptions import ValidationError
 
 DEFAULT_TZ = 'Europe/Prague'
 DAY_NAMES_CZ = ('Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle')
+# „kdy“: ve středu 15:00 – 19:00
+DAY_AT_CZ = ('v pondělí', 'v úterý', 've středu', 've čtvrtek', 'v pátek', 'v sobotu', 'v neděli')
 
 
 def float_to_hm(value):

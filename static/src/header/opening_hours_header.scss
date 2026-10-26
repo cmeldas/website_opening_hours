@@ -1,0 +1,313 @@
+/* ============================================================
+   Otevírací doba v hlavičce webu (šablona header_opening_hours)
+   ============================================================ */
+
+// šipka dolů jako maska, barvu bere z textu hlavičky (currentColor)
+$o-oh-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+$o-oh-green: #2ecc71;
+$o-oh-red: #e74c3c;
+$o-oh-orange: #e67e22;
+
+.o_oh {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+/* ---------- Lišta: tlačítko se stavem, hodinami a šipkou ---------- */
+.o_oh_bar {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.3rem 0.35rem 0.3rem 0.8rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.55);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+        outline: 2px solid $o-oh-green;
+        outline-offset: 2px;
+    }
+}
+
+/* Stav je skrytý (nulová šířka), dokud ho server nepotvrdí; pak se zleva vysune
+   a odkryje (clip-path), hodiny se posunou doprava. */
+.o_oh_status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 0;
+    margin-right: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-weight: 700;
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transition: max-width 0.45s ease, margin-right 0.45s ease, opacity 0.25s ease,
+        clip-path 0.5s ease 0.15s;
+}
+
+.o_oh_known .o_oh_status {
+    max-width: 8rem;
+    margin-right: 0.6rem;
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+}
+
+.o_oh_dot {
+    flex: none;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: $o-oh-red;
+}
+
+.o_oh_is_open .o_oh_dot {
+    background: $o-oh-green;
+    animation: o-oh-pulse 2s infinite;
+}
+
+.o_oh_hours {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+
+.o_oh_unexpected .o_oh_hours {
+    color: $o-oh-orange;
+    font-weight: 600;
+    opacity: 1;
+}
+
+.o_oh_chevron {
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-left: 0.5rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, background-color 0.15s ease;
+
+    &::before {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 100%;
+        background-color: currentColor;
+        -webkit-mask: $o-oh-chevron center / 0.8rem no-repeat;
+        mask: $o-oh-chevron center / 0.8rem no-repeat;
+    }
+}
+
+.o_oh_expanded .o_oh_bar,
+.o_oh_bar:active {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.o_oh_expanded .o_oh_chevron {
+    transform: rotate(180deg);
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* ---------- Rozvrh na 7 dní ---------- */
+.o_oh_panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    z-index: 1050;
+    min-width: 17rem;
+    max-width: calc(100vw - 2rem);
+    padding: 0.9rem 1.1rem;
+    background: #fff;
+    color: #212529;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    text-align: left;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+
+    // most přes mezeru pod lištou, ať rozvrh při přejetí myší nezmizí
+    &::before {
+        content: "";
+        position: absolute;
+        top: -0.5rem;
+        left: 0;
+        right: 0;
+        height: 0.5rem;
+    }
+}
+
+.o_oh_at_nav .o_oh_panel {
+    right: 0;
+}
+
+.o_oh_at_strip .o_oh_panel {
+    left: 50%;
+    transform: translate(-50%, 4px);
+}
+
+@mixin o-oh-panel-shown {
+    .o_oh_panel {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+
+    &.o_oh_at_strip .o_oh_panel {
+        transform: translate(-50%, 0);
+    }
+}
+
+.o_oh_expanded {
+    @include o-oh-panel-shown;
+}
+
+/* Najetí myší jen na zařízeních s myší (na mobilu :hover po klepnutí visí). */
+@media (hover: hover) {
+    .o_oh:not(.o_oh_hover_off):hover {
+        @include o-oh-panel-shown;
+
+        .o_oh_bar {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .o_oh_chevron {
+            transform: rotate(180deg);
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+    }
+}
+
+.o_oh_panel_title {
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e9ecef;
+    font-weight: 700;
+}
+
+.o_oh_message {
+    margin-bottom: 0.5rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: 0.4rem;
+    background: #d1ecf1;
+    color: #0c5460;
+    font-size: 0.82rem;
+
+    &:empty {
+        display: none;
+    }
+}
+
+.o_oh_unexpected .o_oh_message {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.o_oh_day {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.75rem;
+    padding: 0.28rem 0;
+    font-size: 0.88rem;
+}
+
+.o_oh_day_today {
+    margin: 0 -0.5rem;
+    padding: 0.28rem 0.5rem;
+    border-radius: 0.3rem;
+    background: #f8f9fa;
+    font-weight: 700;
+}
+
+.o_oh_day_name {
+    min-width: 4.5rem;
+}
+
+.o_oh_day_hours {
+    min-width: 7rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_oh_day_open {
+    color: #1e9e55;
+    font-weight: 600;
+}
+
+.o_oh_day_closed {
+    color: $o-oh-red;
+}
+
+.o_oh_unexpected .o_oh_day_today .o_oh_day_hours {
+    color: $o-oh-orange;
+}
+
+.o_oh_day_reason {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+/* ---------- Umístění: v liště (od 1200 px), jinak řádek pod lištou ---------- */
+/* V liště je místo pro celou lištu i se stavem vyhrazené předem: stav se vysune doleva
+   a menu uprostřed lišty se při jeho příchodu neposune. */
+.o_oh_nav_item {
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 15.5rem;
+}
+
+/* Řádek pod lištou: třídy navbar navbar-light mu dají barvu hlavičky (motiv webu),
+   rozložení vlastní (Bootstrap by z kontejneru udělal flex a lištu odsunul doleva). */
+.o_oh_strip.navbar {
+    display: block;
+    padding: 0.35rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    text-align: center;
+
+    > .container {
+        display: block;
+    }
+}
+
+@media (min-width: 1200px) {
+    #{"header:has(.o_oh_nav_item) .o_oh_strip"} {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .o_oh_status,
+    .o_oh_chevron,
+    .o_oh_panel {
+        transition: none;
+    }
+
+    .o_oh_is_open .o_oh_dot {
+        animation: none;
+    }
+}
+
+@keyframes o-oh-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 6px rgba(46, 204, 113, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 12px rgba(46, 204, 113, 0.85);
+    }
+}

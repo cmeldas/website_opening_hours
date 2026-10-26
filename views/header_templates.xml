@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Otevírací doba v hlavičce každé stránky webu (místo bloku, který se vkládal do stránek).
+
+        Server vykreslí předpokládanou dobu podle rozvrhu (dnešní hodiny, nebo nejbližší
+        otevření) a rozvrh na 7 dní; stav Otevřeno/Zavřeno s tečkou doplní JS
+        (opening_hours_header.js), až ho potvrdí /opening-hours/status. Dokud nepřijde,
+        není vidět, takže nikdy neproblikne starý stav.
+
+        Na širokých obrazovkách (od 1200 px) je v navigační liště vedle hledání, na užších
+        pod ní v samostatném řádku. Řádek pod lištou je v každé hlavičce; schová se jen tam,
+        kde je otevírací doba v liště (výchozí hlavička).
+    -->
+    <template id="header_opening_hours" name="Otevírací doba v hlavičce">
+        <t t-set="oh" t-value="env['opening.hours.status'].sudo()._website_header()"/>
+        <t t-set="oh_panel_id" t-value="'o_oh_panel_%s' % _placement"/>
+        <div t-attf-class="o_oh o_oh_at_{{ _placement }} o_not_editable" contenteditable="false">
+            <button type="button" class="o_oh_bar" aria-expanded="false"
+                    t-att-aria-controls="oh_panel_id" title="Otevírací doba na 7 dní">
+                <span class="o_oh_status" aria-live="polite">
+                    <span class="o_oh_dot"/>
+                    <span class="o_oh_status_text"/>
+                </span>
+                <span class="o_oh_hours" t-out="oh['hours_label']"/>
+                <span class="o_oh_chevron" aria-hidden="true"/>
+            </button>
+            <div class="o_oh_panel" t-att-id="oh_panel_id">
+                <div class="o_oh_panel_title">Otevírací doba</div>
+                <div class="o_oh_message"/>
+                <ul class="o_oh_days list-unstyled mb-0">
+                    <li t-foreach="oh['days']" t-as="day"
+                        t-attf-class="o_oh_day #{'o_oh_day_today' if day['is_today'] else ''}">
+                        <span class="o_oh_day_name" t-out="day['label']"/>
+                        <span t-attf-class="o_oh_day_hours #{'o_oh_day_open' if day['is_open'] else 'o_oh_day_closed'}"
+                              t-out="day['hours']"/>
+                        <span t-if="day['reason']" class="o_oh_day_reason" t-out="day['reason']"/>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </template>
+
+    <!-- V liště výchozí hlavičky před hledáním (jen od 1200 px, užší obrazovky mají řádek pod lištou) -->
+    <template id="template_header_default_opening_hours" inherit_id="website.template_header_default"
+              name="Otevírací doba v liště">
+        <xpath expr="//t[@t-call='website.placeholder_header_search_box']" position="before">
+            <li class="o_oh_nav_item d-none d-xl-flex">
+                <t t-call="website_opening_hours.header_opening_hours" _placement="'nav'"/>
+            </li>
+        </xpath>
+    </template>
+
+    <!-- Řádek pod lištou (užší obrazovky a hlavičky bez otevírací doby v liště) -->
+    <template id="layout_opening_hours_strip" inherit_id="website.layout" name="Otevírací doba pod lištou">
+        <xpath expr="//header" position="inside">
+            <div class="o_oh_strip navbar navbar-light o_colored_level o_cc">
+                <div class="container">
+                    <t t-call="website_opening_hours.header_opening_hours" _placement="'strip'"/>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
