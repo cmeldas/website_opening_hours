@@ -7,9 +7,10 @@ a v Home Assistantu. **Odoo je zdroj pravdy**, Home Assistant se podle něj pře
 
 Menu **Otevírací doba**:
 
-- **Stav obchůdku**: teď otevřeno/zavřeno a proč, dnešní hodiny, další změna, co naposledy
-  hlásil Home Assistant. Tlačítka **Otevřít**, **Zavřít**, **Dnes už neotevírat** a **Zpět podle
-  rozvrhu** (vidí je každý přihlášený uživatel).
+- **Stav obchůdku** (stránka pro obsluhu): teď otevřeno/zavřeno a proč, dnešní hodiny, další
+  změna, co naposledy hlásil Home Assistant (jen ke čtení). Tlačítka **Otevřít**, **Zavřít**,
+  **Dnes už neotevírat** a **Zpět podle rozvrhu** (vidí je každý přihlášený uživatel). Nic
+  technického, napojení HA je v Nastavení.
 - **Rozvrhy** (`opening.hours.schedule`, jen správce): výchozí rozvrh bez dat („Celoročně“)
   a sezónní rozvrhy na rozmezí dat, volitelně **každý rok** (zima 1. 11. – 31. 3. přes Nový
   rok). Každý rozvrh má 7 dnů s otevřeno ano/ne a časy (`opening.hours`). Nový rozvrh začíná
@@ -30,7 +31,8 @@ ten s kratším rozmezím, tedy Vánoce před zimou) → **výchozí rozvrh**. N
 Ruční stav vždy platí nejdéle do konce dne. Časy jsou v pásmu firmy (výchozí Europe/Prague).
 
 **Snippet webu „Otevírací doba“** (blok v editoru webu ve skupině Obsah): lišta se stavem,
-dnešními hodinami a hláškou; rozvrh na 7 dní po najetí myší nebo klepnutím na lištu, dalším
+dnešními hodinami a hláškou jako zaoblené tlačítko se šipkou dolů (při rozbalení se otočí,
+ovládá se i klávesnicí); rozvrh na 7 dní po najetí myší nebo klepnutím na lištu, dalším
 klepnutím (i na rozvrh) se schová. Na mobilu se rozvrh ukazuje jen klepnutím (dřív po
 klepnutí zůstal viset, protože `:hover` na dotykovém displeji trvá).
 
@@ -59,7 +61,8 @@ Když Odoo neběží, HA nechá stav, jak je, a obchůdek jde přepínat ručně
 2. V Odoo zkontrolovat Rozvrhy, případně založit sezónní (zima, léto) a výjimky.
 3. Do HA nahrát oba blueprinty z `ha_config` (`/config/blueprints/automation/`), znovu
    načíst automatizace. Stávající automatizace „Webhook - Odoo openning hours“ použije nový
-   `odoo_opening_hours.yaml` sama (vyplněný Webhook Secret, stejný jako v Odoo).
+   `odoo_opening_hours.yaml` sama (vyplněný Webhook Secret, stejný jako v Odoo v Nastavení
+   → Web → Otevírací doba – Home Assistant).
 4. Založit automatizaci z blueprintu „Odoo Opening Hours – follow Odoo“ (Odoo URL
    `http://192.168.100.9:8069`).
 5. **Smazat (nebo vypnout) rozvrhy plánovače** pro obchůdek („Otevírací doba obchůdku týden“
@@ -74,8 +77,9 @@ Když Odoo neběží, HA nechá stav, jak je, a obchůdek jde přepínat ručně
 | `/opening-hours/ha-state` | POST JSON-RPC, `auth='none'` | HA: `{"is_open", "scheduled_open", "manual", "manual_until", "next_change"}` (UTC) |
 | `/opening-hours/webhook` | POST JSON-RPC, `auth='none'` | HA: `{"secret": "...", "is_open": true/false, "changed_at": "ISO"}` → `{"status", "is_open", "result": "confirmed"/"manual"/"stale"}` |
 
-Tajný klíč webhooku se nastavuje v Stav obchůdku (vidí ho jen správce). Dokud je prázdný,
-webhook přijme cokoli. `ha-state` klíč nechce, stav je veřejný (ukazuje ho i web).
+Tajný klíč webhooku se nastavuje v **Nastavení → Web → Otevírací doba – Home Assistant**
+(systémový parametr `website_opening_hours.webhook_secret`). Dokud je prázdný, webhook přijme
+cokoli. `ha-state` klíč nechce, stav je veřejný (ukazuje ho i web).
 
 ## Test
 
@@ -85,6 +89,14 @@ odoo -d <db> -i website_opening_hours --test-enable --test-tags /website_opening
 
 Modely (rozvrhy, sezóny přes Nový rok, přednosti, přechod na zimní čas, ruční stav a jeho
 konec, hlášení z HA včetně starého), JSON trasy, webhook, `ha-state`, registrace snippetu.
+
+## 20.0.2.0.1
+
+- Stav obchůdku je jen pro obsluhu: bez tajného klíče a technického popisu; „HA hlásí
+  otevřeno“ a „HA naposledy hlásil“ jsou jen ke čtení.
+- Webhook Secret v Nastavení → Web. `migrations/20.0.2.0.1/pre-migrate.py` přenese stávající
+  klíč ze záznamu stavu do systémového parametru (HA se nemění).
+- Lišta snippetu jako tlačítko se šipkou dolů, ať je jasné, že jde rozbalit.
 
 ## 20.0.2.0.0
 

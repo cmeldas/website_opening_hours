@@ -197,6 +197,12 @@ class TestOpeningHoursModels(TransactionCase):
         self.assertEqual(state['manual_until'], PRAGUE.localize(datetime(2030, 6, 4, 0, 0)))
         self.assertFalse(self._state(MONDAY + timedelta(days=1), 0, 30)['is_open'])
 
+    def test_ha_report_fields_readonly(self):
+        """Co hlásí HA, se v Odoo ručně nemění (jen webhook)."""
+        fields_info = self.env['opening.hours.status'].fields_get(['ha_is_open', 'last_update'], ['readonly'])
+        self.assertTrue(fields_info['ha_is_open']['readonly'])
+        self.assertTrue(fields_info['last_update']['readonly'])
+
     def test_live_fields(self):
         self.status._set_manual(True, 'odoo')
         self.assertTrue(self.status.is_open_now)
@@ -259,7 +265,7 @@ class TestOpeningHoursHttp(HttpCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.status = cls.env.ref('website_opening_hours.opening_hours_status_default')
-        cls.status.webhook_secret = 'tajne-heslo'
+        cls.env['ir.config_parameter'].sudo().set_str('website_opening_hours.webhook_secret', 'tajne-heslo')
         cls.status._clear_manual()
 
     def _set_today(self, is_open, open_time=0.0, close_time=24.0, reason=False):
@@ -349,6 +355,16 @@ class TestOpeningHoursHttp(HttpCase):
         self.status.invalidate_recordset()
         self.assertEqual(self.status.manual_state, 'closed')
         self.assertFalse(self.make_jsonrpc_request('/opening-hours/ha-state', {})['is_open'])
+
+    def test_webhook_secret_in_settings(self):
+        """Webhook Secret se nastavuje v Nastavení → Web, ukládá se jako systémový parametr."""
+        settings = self.env['res.config.settings'].create({'opening_hours_webhook_secret': 'nove-heslo'})
+        settings.execute()
+        self.assertEqual(
+            self.env['ir.config_parameter'].sudo().get_str('website_opening_hours.webhook_secret'), 'nove-heslo',
+        )
+        result = self.make_jsonrpc_request('/opening-hours/webhook', {'secret': 'tajne-heslo', 'is_open': True})
+        self.assertEqual(result['status'], 'error')
 
     def test_snippet_registered(self):
         """Snippet je v panelu stavebních bloků a jeho šablona se vykreslí."""

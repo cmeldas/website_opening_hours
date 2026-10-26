@@ -7,6 +7,8 @@ import pytz
 from odoo import http
 from odoo.http import request, Response
 
+from ..models.res_config_settings import WEBHOOK_SECRET_PARAM
+
 
 def _json_response(data):
     return Response(json.dumps(data), content_type='application/json', status=200)
@@ -52,13 +54,10 @@ class OpeningHoursController(http.Controller):
             is_open: true/false
             changed_at: kdy se stav v HA změnil (ISO s časovou zónou), nepovinné
         """
-        status_model = request.env['opening.hours.status'].sudo()
-        status = status_model.search([], limit=1)
+        expected = request.env['ir.config_parameter'].sudo().get_str(WEBHOOK_SECRET_PARAM)
+        if expected and not hmac.compare_digest(str(secret), expected):
+            return {'status': 'error', 'message': 'Invalid secret'}
 
-        if status and status.webhook_secret:
-            if not hmac.compare_digest(str(secret), status.webhook_secret):
-                return {'status': 'error', 'message': 'Invalid secret'}
-
-        result = status_model.update_ha_status(bool(is_open), _parse_changed_at(changed_at) if changed_at else None)
+        result = request.env['opening.hours.status'].sudo().update_ha_status(bool(is_open), _parse_changed_at(changed_at) if changed_at else None)
 
         return {'status': 'ok', 'is_open': is_open, 'result': result}

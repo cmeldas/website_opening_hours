@@ -181,25 +181,13 @@
                         <group string="Home Assistant">
                             <field name="ha_is_open"/>
                             <field name="last_update"/>
-                            <field name="webhook_secret" password="True"/>
                         </group>
                     </group>
-                    <div class="alert alert-info" role="alert" groups="base.group_system">
-                        <p>
-                            <strong>Otevřít / Zavřít</strong> platí do nejbližší změny podle rozvrhu,
-                            nejdéle do konce dne. Otevřít v 10:00 při otevírací době 15–19 = otevřeno
-                            nepřetržitě do 19:00. <strong>Dnes už neotevírat</strong> = zavřeno i
-                            v dnešní otevírací době.
-                        </p>
-                        <p class="mb-0">
-                            Home Assistant se každou minutu ptá na <code>/opening-hours/ha-state</code>
-                            (JSON-RPC) a podle odpovědi přepíná <code>input_boolean.obchudek_otevren</code>.
-                            Ruční přepnutí v HA posílá na <code>/opening-hours/webhook</code>
-                            (<code>{"secret": "...", "is_open": true/false, "changed_at": "..."}</code>)
-                            a Odoo ho bere jako ruční otevření/zavření. Blueprinty jsou v repu
-                            <code>ha_config</code>: <code>odoo_opening_hours_follow.yaml</code> a
-                            <code>odoo_opening_hours.yaml</code>.
-                        </p>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Otevřít / Zavřít</strong> platí do nejbližší změny podle rozvrhu,
+                        nejdéle do konce dne. Otevřít v 10:00 při otevírací době 15–19 = otevřeno
+                        nepřetržitě do 19:00. <strong>Dnes už neotevírat</strong> = zavřeno i
+                        v dnešní otevírací době. Otevírací dobu mění správce v Rozvrzích a Výjimkách.
                     </div>
                 </sheet>
             </form>

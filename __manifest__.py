@@ -1,6 +1,6 @@
 {
     'name': 'Website Opening Hours',
-    'version': '20.0.2.0.0',
+    'version': '20.0.2.0.1',
     'author': 'Matouš Čmelík',
     'category': 'Website',
     'summary': 'Opening hours of the shop with seasonal schedules, manual open/close and Home Assistant sync',
@@ -16,6 +16,7 @@
         'data/opening_hours_data.xml',
         'views/opening_hours_views.xml',
         'views/opening_hours_menus.xml',
+        'views/res_config_settings_views.xml',
         'views/snippets/snippets.xml',
         'views/snippets/s_opening_hours.xml',
     ],

@@ -59,16 +59,14 @@ class OpeningHoursStatus(models.Model):
     ha_is_open = fields.Boolean(
         string='HA hlásí otevřeno',
         default=False,
-        help='Poslední stav input_boolean.obchudek_otevren, který Home Assistant poslal.',
+        readonly=True,
+        help='Poslední stav input_boolean.obchudek_otevren, který Home Assistant poslal '
+             '(jen hlášení, nastavuje ho webhook).',
     )
     last_update = fields.Datetime(
         string='HA naposledy hlásil',
         default=fields.Datetime.now,
-    )
-    webhook_secret = fields.Char(
-        string='Webhook Secret',
-        groups='base.group_system',
-        help='Tajný klíč pro ověření webhook volání z Home Assistant.',
+        readonly=True,
     )
     manual_state = fields.Selection(
         [('open', 'Otevřeno'), ('closed', 'Zavřeno')],
