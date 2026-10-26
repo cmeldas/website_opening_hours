@@ -2,30 +2,81 @@
 <odoo>
 
     <!-- ============================================================
-         Opening Hours - Regular Schedule
+         Rozvrhy: výchozí a sezónní (na rozmezí dat)
          ============================================================ -->
 
-    <record id="view_opening_hours_tree" model="ir.ui.view">
-        <field name="name">opening.hours.tree</field>
-        <field name="model">opening.hours</field>
+    <record id="view_opening_hours_schedule_list" model="ir.ui.view">
+        <field name="name">opening.hours.schedule.list</field>
+        <field name="model">opening.hours.schedule</field>
         <field name="arch" type="xml">
-            <list editable="bottom" default_order="day_of_week">
-                <field name="day_of_week"/>
-                <field name="is_open"/>
-                <field name="open_time" widget="float_time" invisible="not is_open"/>
-                <field name="close_time" widget="float_time" invisible="not is_open"/>
+            <list>
+                <field name="name"/>
+                <field name="period_display"/>
+                <field name="is_default" column_invisible="True"/>
+                <field name="active" column_invisible="True"/>
             </list>
         </field>
     </record>
 
-    <record id="action_opening_hours" model="ir.actions.act_window">
-        <field name="name">Otevírací doba</field>
-        <field name="res_model">opening.hours</field>
-        <field name="view_mode">list</field>
-        <field name="view_id" ref="view_opening_hours_tree"/>
+    <record id="view_opening_hours_schedule_form" model="ir.ui.view">
+        <field name="name">opening.hours.schedule.form</field>
+        <field name="model">opening.hours.schedule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archivováno" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="např. Zima"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="repeat_yearly" invisible="not date_from and not date_to"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="period_display"/>
+                        </group>
+                    </group>
+                    <div class="text-muted mb-3">
+                        Bez dat je to výchozí rozvrh, platí vždy, když neplatí žádný sezónní.
+                        Když se sezónní rozvrhy překrývají, platí ten s kratším rozmezím.
+                        Výjimky na jednotlivé dny mají přednost před všemi rozvrhy.
+                    </div>
+                    <field name="line_ids">
+                        <list editable="bottom" default_order="day_of_week" create="0">
+                            <field name="day_of_week"/>
+                            <field name="is_open"/>
+                            <field name="open_time" widget="float_time" invisible="not is_open"/>
+                            <field name="close_time" widget="float_time" invisible="not is_open"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_opening_hours_schedule_search" model="ir.ui.view">
+        <field name="name">opening.hours.schedule.search</field>
+        <field name="model">opening.hours.schedule</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <filter name="inactive" string="Archivované" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_opening_hours_schedule" model="ir.actions.act_window">
+        <field name="name">Rozvrhy otevírací doby</field>
+        <field name="res_model">opening.hours.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'opening_hours_prefill': True}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Nastavte otevírací dobu pro každý den v týdnu
+                Založte výchozí rozvrh (bez dat) a případně sezónní rozvrhy, třeba na zimu
             </p>
         </field>
     </record>
@@ -93,30 +144,62 @@
     </record>
 
     <!-- ============================================================
-         HA Status
+         Stav obchůdku: teď otevřeno/zavřeno, ruční otevření a zavření, Home Assistant
          ============================================================ -->
 
     <record id="view_opening_hours_status_form" model="ir.ui.view">
         <field name="name">opening.hours.status.form</field>
         <field name="model">opening.hours.status</field>
         <field name="arch" type="xml">
-            <form create="0" delete="0" duplicate="0">
+            <form create="0" delete="0" duplicate="0" string="Stav obchůdku">
+                <header>
+                    <button name="action_open" type="object" string="Otevřít" class="btn-primary"
+                            invisible="is_open_now"/>
+                    <button name="action_close" type="object" string="Zavřít" class="btn-primary"
+                            invisible="not is_open_now"/>
+                    <button name="action_close" type="object" string="Dnes už neotevírat"
+                            invisible="is_open_now or manual_active or not opens_later_today"/>
+                    <button name="action_follow_schedule" type="object" string="Zpět podle rozvrhu"
+                            invisible="not manual_active"/>
+                </header>
                 <sheet>
+                    <field name="is_open_now" invisible="1"/>
+                    <field name="manual_active" invisible="1"/>
+                    <field name="opens_later_today" invisible="1"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="state_label" widget="badge"
+                                   decoration-success="is_open_now" decoration-danger="not is_open_now"/>
+                        </h1>
+                    </div>
                     <group>
-                        <group string="Stav z Home Assistant">
+                        <group string="Teď">
+                            <field name="state_detail"/>
+                            <field name="today_hours"/>
+                            <field name="next_change_display"/>
+                        </group>
+                        <group string="Home Assistant">
                             <field name="ha_is_open"/>
                             <field name="last_update"/>
-                        </group>
-                        <group string="Nastavení">
                             <field name="webhook_secret" password="True"/>
                         </group>
                     </group>
-                    <div class="alert alert-info" role="alert">
-                        <strong>Webhook URL:</strong>
-                        <code>/opening-hours/webhook</code>
-                        <br/>
-                        Home Assistant posílá POST JSON s
-                        <code>{"secret": "...", "is_open": true/false}</code>
+                    <div class="alert alert-info" role="alert" groups="base.group_system">
+                        <p>
+                            <strong>Otevřít / Zavřít</strong> platí do nejbližší změny podle rozvrhu,
+                            nejdéle do konce dne. Otevřít v 10:00 při otevírací době 15–19 = otevřeno
+                            nepřetržitě do 19:00. <strong>Dnes už neotevírat</strong> = zavřeno i
+                            v dnešní otevírací době.
+                        </p>
+                        <p class="mb-0">
+                            Home Assistant se každou minutu ptá na <code>/opening-hours/ha-state</code>
+                            (JSON-RPC) a podle odpovědi přepíná <code>input_boolean.obchudek_otevren</code>.
+                            Ruční přepnutí v HA posílá na <code>/opening-hours/webhook</code>
+                            (<code>{"secret": "...", "is_open": true/false, "changed_at": "..."}</code>)
+                            a Odoo ho bere jako ruční otevření/zavření. Blueprinty jsou v repu
+                            <code>ha_config</code>: <code>odoo_opening_hours_follow.yaml</code> a
+                            <code>odoo_opening_hours.yaml</code>.
+                        </p>
                     </div>
                 </sheet>
             </form>
@@ -124,7 +207,7 @@
     </record>
 
     <record id="action_opening_hours_status" model="ir.actions.act_window">
-        <field name="name">Stav obchůdku (HA)</field>
+        <field name="name">Stav obchůdku</field>
         <field name="res_model">opening.hours.status</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_opening_hours_status_form"/>

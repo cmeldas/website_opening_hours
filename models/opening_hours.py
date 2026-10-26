@@ -3,9 +3,10 @@ from odoo.exceptions import ValidationError
 
 
 class OpeningHours(models.Model):
+    """Den v rozvrhu otevírací doby (`opening.hours.schedule`)."""
     _name = 'opening.hours'
     _description = 'Opening Hours'
-    _order = 'day_of_week'
+    _order = 'schedule_id, day_of_week'
     _rec_name = 'day_of_week'
 
     DAY_SELECTION = [
@@ -18,6 +19,13 @@ class OpeningHours(models.Model):
         ('6', 'Neděle'),
     ]
 
+    schedule_id = fields.Many2one(
+        'opening.hours.schedule',
+        string='Rozvrh',
+        required=True,
+        ondelete='cascade',
+        index=True,
+    )
     day_of_week = fields.Selection(
         DAY_SELECTION,
         string='Den v týdnu',
@@ -40,8 +48,8 @@ class OpeningHours(models.Model):
     )
 
     _day_unique = models.Constraint(
-        'UNIQUE(day_of_week)',
-        'Každý den v týdnu může mít pouze jeden záznam.',
+        'UNIQUE(schedule_id, day_of_week)',
+        'Každý den v týdnu může mít v rozvrhu pouze jeden záznam.',
     )
 
     @api.constrains('is_open', 'open_time', 'close_time')

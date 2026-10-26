@@ -1,13 +1,14 @@
 {
     'name': 'Website Opening Hours',
-    'version': '20.0.1.1.0',
+    'version': '20.0.2.0.0',
     'author': 'Matouš Čmelík',
     'category': 'Website',
-    'summary': 'Display opening hours widget on website with live open/closed status from Home Assistant',
+    'summary': 'Opening hours of the shop with seasonal schedules, manual open/close and Home Assistant sync',
     'description': """
-        Configurable opening hours per day of week with calendar overrides.
-        Live open/closed status synced from Home Assistant.
-        Website snippet with hover tooltip showing 7-day schedule.
+        Otevírací doba obchůdku: výchozí a sezónní rozvrhy (rozmezí dat, i každý rok),
+        výjimky na dny, ruční Otevřít / Zavřít. Odoo je zdroj pravdy, Home Assistant
+        se podle něj přepíná (input_boolean.obchudek_otevren) a ruční přepnutí v HA
+        posílá zpět. Snippet webu se stavem a rozvrhem na 7 dní.
     """,
     'depends': ['website'],
     'data': [

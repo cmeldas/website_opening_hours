@@ -8,26 +8,28 @@
     />
 
     <menuitem
-        id="menu_opening_hours_schedule"
-        name="Týdenní rozvrh"
+        id="menu_opening_hours_status"
+        name="Stav obchůdku"
         parent="menu_opening_hours_root"
-        action="action_opening_hours"
+        action="action_opening_hours_status"
+        sequence="5"
+    />
+
+    <menuitem
+        id="menu_opening_hours_schedule"
+        name="Rozvrhy"
+        parent="menu_opening_hours_root"
+        action="action_opening_hours_schedule"
         sequence="10"
+        groups="base.group_system"
     />
 
     <menuitem
         id="menu_opening_hours_override"
-        name="Výjimky (svátky)"
+        name="Výjimky (dny)"
         parent="menu_opening_hours_root"
         action="action_opening_hours_override"
         sequence="20"
-    />
-
-    <menuitem
-        id="menu_opening_hours_status"
-        name="Stav HA"
-        parent="menu_opening_hours_root"
-        action="action_opening_hours_status"
-        sequence="30"
+        groups="base.group_system"
     />
 </odoo>

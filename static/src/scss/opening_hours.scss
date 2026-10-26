@@ -15,8 +15,9 @@
         align-items: center;
         gap: 1rem;
         padding: 0.6rem 1rem;
-        cursor: default;
+        cursor: pointer;
         flex-wrap: wrap;
+        -webkit-tap-highlight-color: transparent;
     }
 
     /* ---------- Status indicator ---------- */
@@ -102,7 +103,9 @@
         left: 0;
         z-index: 1050;
         min-width: 340px;
+        max-width: calc(100vw - 2rem);
         background: #fff;
+        cursor: pointer;
         border-radius: 0.75rem;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
         padding: 1rem 1.25rem;
@@ -114,8 +117,18 @@
         pointer-events: none;
     }
 
-    .s_oh_status_bar:hover + .s_oh_schedule_tooltip,
-    .s_oh_schedule_tooltip:hover,
+    /* Najetí myší jen na zařízeních s myší: na mobilu :hover po klepnutí trvá a rozvrh
+       by nešel schovat. Po schování kliknutím (.s_oh_tooltip_closed) až do odjetí myší ne. */
+    @media (hover: hover) {
+        .s_opening_hours_widget:not(.s_oh_tooltip_closed) .s_oh_status_bar:hover + .s_oh_schedule_tooltip,
+        .s_opening_hours_widget:not(.s_oh_tooltip_closed) .s_oh_schedule_tooltip:hover {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+    }
+
     .s_oh_schedule_tooltip.s_oh_tooltip_open {
         opacity: 1;
         visibility: visible;
@@ -185,6 +198,11 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 0.25rem;
+    }
+
+    .s_opening_hours .s_oh_schedule_tooltip {
+        min-width: 0;
+        width: max-content;
     }
 }
 

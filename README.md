@@ -1,21 +1,69 @@
 # Website Opening Hours
 
-Otevírací doba obchůdku na webu ranče se živým stavem otevřeno/zavřeno z Home Assistantu.
+Otevírací doba obchůdku ranče: rozvrhy, výjimky a ruční otevření/zavření v Odoo, stav na webu
+a v Home Assistantu. **Odoo je zdroj pravdy**, Home Assistant se podle něj přepíná.
 
 ## Co modul umí
 
-- **Týdenní rozvrh** (`opening.hours`, menu Otevírací doba → Týdenní rozvrh): pro každý den
-  otevřeno ano/ne a časy.
-- **Výjimky** (`opening.hours.override`, kalendář): svátky, dovolená, akce; přepisují rozvrh na
-  konkrétní den, volitelně s důvodem.
-- **Stav z Home Assistantu** (`opening.hours.status`, jeden záznam): HA volá webhook při změně
-  `input_boolean.obchudek_otevren`.
-- **Snippet webu „Otevírací doba“** (blok v editoru webu ve skupině Obsah): lišta se stavem,
-  dnešními hodinami a hláškou, po najetí myší nebo kliknutí rozvrh na 7 dní.
+Menu **Otevírací doba**:
 
-Stav na webu kombinuje rozvrh a HA: `open` (otevřeno v otevírací době), `open_early` (HA otevřeno
-mimo otevírací dobu, „Už jsme otevřeli dříve“), `closed_unexpected` (v otevírací době HA zavřeno,
-omluva a plánované hodiny), `closed`.
+- **Stav obchůdku**: teď otevřeno/zavřeno a proč, dnešní hodiny, další změna, co naposledy
+  hlásil Home Assistant. Tlačítka **Otevřít**, **Zavřít**, **Dnes už neotevírat** a **Zpět podle
+  rozvrhu** (vidí je každý přihlášený uživatel).
+- **Rozvrhy** (`opening.hours.schedule`, jen správce): výchozí rozvrh bez dat („Celoročně“)
+  a sezónní rozvrhy na rozmezí dat, volitelně **každý rok** (zima 1. 11. – 31. 3. přes Nový
+  rok). Každý rozvrh má 7 dnů s otevřeno ano/ne a časy (`opening.hours`). Nový rozvrh začíná
+  kopií dnů výchozího.
+- **Výjimky (dny)** (`opening.hours.override`, kalendář): svátky, dovolená, akce na konkrétní den.
+
+Co platí pro den: **výjimka** → **sezónní rozvrh**, do jehož rozmezí den spadá (při překryvu
+ten s kratším rozmezím, tedy Vánoce před zimou) → **výchozí rozvrh**. Nad tím **ruční stav**:
+
+| akce | platí do |
+|---|---|
+| Otevřít v 10:00, rozvrh 15–19 | 15:00, pak podle rozvrhu, tedy otevřeno nepřetržitě do 19:00 |
+| Zavřít v 16:00, rozvrh 15–19 | 19:00 |
+| Dnes už neotevírat ve 14:00, rozvrh 15–19 | 19:00 (dnes zavřeno) |
+| Otevřít ve zavřený den | konec dne |
+| Otevřít, když je ručně zavřeno v otevírací době | ruční stav se zruší, zpět podle rozvrhu |
+
+Ruční stav vždy platí nejdéle do konce dne. Časy jsou v pásmu firmy (výchozí Europe/Prague).
+
+**Snippet webu „Otevírací doba“** (blok v editoru webu ve skupině Obsah): lišta se stavem,
+dnešními hodinami a hláškou; rozvrh na 7 dní po najetí myší nebo klepnutím na lištu, dalším
+klepnutím (i na rozvrh) se schová. Na mobilu se rozvrh ukazuje jen klepnutím (dřív po
+klepnutí zůstal viset, protože `:hover` na dotykovém displeji trvá).
+
+Stavy na webu: `open` (otevřeno podle rozvrhu), `open_early` (ručně otevřeno mimo otevírací
+dobu: „Už jsme otevřeli dříve“ před dnešním otevřením, jinak „Mimořádně máme otevřeno“),
+`closed_unexpected` (ručně zavřeno v otevírací době, omluva a plánované hodiny), `closed`.
+
+## Home Assistant
+
+HA nemá vlastní otevírací dobu (plánovač/scheduler se na obchůdek nepoužívá), řídí ho Odoo:
+
+1. **Odoo → HA**: blueprint `ha_config/blueprints/automation/odoo_opening_hours_follow.yaml`
+   se každou minutu ptá na `/opening-hours/ha-state` a přepíná `input_boolean.obchudek_otevren`.
+   Změnu udělanou v HA za poslední 3 minuty nechá být, než ji webhook nahlásí Odoo.
+2. **HA → Odoo**: blueprint `odoo_opening_hours.yaml` při každé změně `obchudek_otevren`
+   volá `/opening-hours/webhook`. Když HA jen následoval Odoo, je to potvrzení. Když někdo
+   přepnul obchůdek v HA (dashboard, notifikace „Zavřít obchůdek“), Odoo to převezme jako
+   ruční otevření/zavření (stejně jako tlačítka), aby ho HA při příštím dotazu nevrátil.
+   Hlášení starší než 10 minut (opakování po výpadku Odoo) se za ruční změnu nepovažuje.
+
+Když Odoo neběží, HA nechá stav, jak je, a obchůdek jde přepínat ručně v HA.
+
+### Přechod z plánovače HA
+
+1. Nasadit modul 20.0.2.0.0 (aktualizace převede týdenní rozvrh na výchozí rozvrh „Celoročně“).
+2. V Odoo zkontrolovat Rozvrhy, případně založit sezónní (zima, léto) a výjimky.
+3. Do HA nahrát oba blueprinty z `ha_config` (`/config/blueprints/automation/`), znovu
+   načíst automatizace. Stávající automatizace „Webhook - Odoo openning hours“ použije nový
+   `odoo_opening_hours.yaml` sama (vyplněný Webhook Secret, stejný jako v Odoo).
+4. Založit automatizaci z blueprintu „Odoo Opening Hours – follow Odoo“ (Odoo URL
+   `http://192.168.100.9:8069`).
+5. **Smazat (nebo vypnout) rozvrhy plánovače** pro obchůdek („Otevírací doba obchůdku týden“
+   a další), jinak by s Odoo soupeřily.
 
 ## Rozhraní
 
@@ -23,10 +71,27 @@ omluva a plánované hodiny), `closed`.
 |---|---|---|
 | `/opening-hours/status` | GET, JSON | aktuální stav, snippet se ptá každou minutu |
 | `/opening-hours/schedule` | GET, JSON | rozvrh na 7 dní od dneška včetně výjimek |
-| `/opening-hours/webhook` | POST JSON-RPC, `auth='none'` | HA: `{"secret": "...", "is_open": true/false}` |
+| `/opening-hours/ha-state` | POST JSON-RPC, `auth='none'` | HA: `{"is_open", "scheduled_open", "manual", "manual_until", "next_change"}` (UTC) |
+| `/opening-hours/webhook` | POST JSON-RPC, `auth='none'` | HA: `{"secret": "...", "is_open": true/false, "changed_at": "ISO"}` → `{"status", "is_open", "result": "confirmed"/"manual"/"stale"}` |
 
-Tajný klíč webhooku se nastavuje v menu Otevírací doba → Stav HA. Dokud je prázdný, webhook
-přijme cokoli.
+Tajný klíč webhooku se nastavuje v Stav obchůdku (vidí ho jen správce). Dokud je prázdný,
+webhook přijme cokoli. `ha-state` klíč nechce, stav je veřejný (ukazuje ho i web).
+
+## Test
+
+```
+odoo -d <db> -i website_opening_hours --test-enable --test-tags /website_opening_hours --stop-after-init
+```
+
+Modely (rozvrhy, sezóny přes Nový rok, přednosti, přechod na zimní čas, ruční stav a jeho
+konec, hlášení z HA včetně starého), JSON trasy, webhook, `ha-state`, registrace snippetu.
+
+## 20.0.2.0.0
+
+Rozvrhy místo jednoho týdenního rozvrhu, ruční otevření/zavření v Odoo, HA řízený z Odoo,
+oprava schovávání rozvrhu na mobilu. `migrations/20.0.2.0.0/post-migrate.py` přiřadí stávajících
+7 dnů k výchozímu rozvrhu „Celoročně“ (založí ho data modulu); NOT NULL na `schedule_id` doplní
+Odoo až po skriptu, unikátnost dne je teď v rámci rozvrhu. Ověřeno na kopii produkce `db20`.
 
 ## Odoo 20
 

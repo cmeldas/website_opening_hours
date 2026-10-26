@@ -3,6 +3,7 @@ from odoo.exceptions import ValidationError
 
 
 class OpeningHoursOverride(models.Model):
+    """Výjimka na konkrétní den (svátek, dovolená, akce), má přednost před rozvrhy."""
     _name = 'opening.hours.override'
     _description = 'Opening Hours Override'
     _order = 'date'
@@ -38,14 +39,14 @@ class OpeningHoursOverride(models.Model):
 
     @api.onchange('date')
     def _onchange_date(self):
+        """Předvyplnit podle rozvrhu platného pro ten den (výchozí nebo sezónní)."""
         if self.date:
-            regular = self.env['opening.hours'].search([
-                ('day_of_week', '=', str(self.date.weekday())),
-            ], limit=1)
-            if regular:
-                self.is_open = regular.is_open
-                self.open_time = regular.open_time
-                self.close_time = regular.close_time
+            [info] = self.env['opening.hours.schedule']._days(self.date, 1, exclude_override=self._origin)
+            if info['source'] == 'schedule':
+                self.is_open = info['is_open']
+                if info['is_open']:
+                    self.open_time = info['open_time']
+                    self.close_time = info['close_time']
 
     @api.constrains('is_open', 'open_time', 'close_time')
     def _check_times(self):

@@ -4,6 +4,11 @@
  * Stav obchůdku se načítá z /opening-hours/status každou minutu, rozvrh na 7 dní
  * z /opening-hours/schedule (při startu, při najetí myší a při kliknutí na lištu).
  *
+ * Rozvrh se ukazuje po najetí myší (jen zařízení s myší) a kliknutím/klepnutím na lištu;
+ * další klepnutí na lištu nebo na rozvrh ho zase schová (na mobilu dřív zůstal viset,
+ * protože :hover po klepnutí trvá). Po schování kliknutím se na počítači neukáže,
+ * dokud myš lištu neopustí.
+ *
  * Odoo 20 zrušilo publicWidget (@web/legacy/js/public/public_widget), proto je to
  * Interaction. Při zastavení (vstup do editoru webu, uložení stránky) vrací obsah do
  * výchozího stavu šablony, takže editor do stránky neuloží vykreslený stav (v 19 se
@@ -43,7 +48,10 @@ export class OpeningHours extends Interaction {
             "t-on-click": this.onBarClick,
         },
         ".s_oh_schedule_tooltip": {
-            "t-on-click": (ev) => ev.stopPropagation(),
+            "t-on-click": this.onTooltipClick,
+        },
+        _root: {
+            "t-on-mouseleave": this.onMouseLeave,
         },
         _document: {
             "t-on-click": this.onDocumentClick,
@@ -80,14 +88,44 @@ export class OpeningHours extends Interaction {
             return;
         }
         ev.stopPropagation();
-        const isOpen = this.tooltipEl.classList.toggle("s_oh_tooltip_open");
-        if (isOpen) {
+        if (this.isTooltipShown()) {
+            this.hideTooltip();
+        } else {
+            this.widgetEl.classList.remove("s_oh_tooltip_closed");
+            this.tooltipEl.classList.add("s_oh_tooltip_open");
             this.fetchSchedule();
         }
     }
 
+    onTooltipClick(ev) {
+        ev.stopPropagation();
+        this.hideTooltip();
+    }
+
+    onMouseLeave() {
+        this.widgetEl.classList.remove("s_oh_tooltip_closed");
+    }
+
     onDocumentClick() {
         this.tooltipEl?.classList.remove("s_oh_tooltip_open");
+    }
+
+    /** Rozvrh je vidět: otevřený kliknutím, nebo najetím myší (jen zařízení s myší). */
+    isTooltipShown() {
+        if (this.tooltipEl.classList.contains("s_oh_tooltip_open")) {
+            return true;
+        }
+        return (
+            window.matchMedia("(hover: hover)").matches &&
+            !this.widgetEl.classList.contains("s_oh_tooltip_closed") &&
+            this.widgetEl.matches(":hover")
+        );
+    }
+
+    hideTooltip() {
+        this.tooltipEl.classList.remove("s_oh_tooltip_open");
+        // na počítači by ho :hover hned ukázal znovu, do odjetí myší ho potlačit
+        this.widgetEl.classList.add("s_oh_tooltip_closed");
     }
 
     // -------------------------------------------------------------------------
@@ -157,6 +195,7 @@ export class OpeningHours extends Interaction {
             messageEl.textContent = "";
         }
         this.tooltipEl?.classList.remove("s_oh_tooltip_open");
+        widget.classList.remove("s_oh_tooltip_closed");
         const list = widget.querySelector(".s_oh_schedule_list");
         if (list) {
             list.innerHTML = SCHEDULE_LOADING_HTML;
